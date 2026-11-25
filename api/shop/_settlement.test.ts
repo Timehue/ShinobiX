@@ -97,16 +97,15 @@ test('card packs draw only from the server rarity pool and debit only once', () 
         ['rare-a', { id: 'rare-a', rarity: 'rare' }],
         ['epic-a', { id: 'epic-a', rarity: 'epic' }],
     ]);
-    const opened = applyCardPackPurchase(character(), cards, 'standard', 'cardpack00000001', 100, (length) => length - 1);
+    const opened = applyCardPackPurchase(character({ tileCards: ['rare-a', 'rare-a'] }), cards, 'standard', 'cardpack00000001', 100, (length) => length - 1);
     assert.equal(opened.ok, true);
     if (!opened.ok || opened.value.kind !== 'card-pack') return;
-    // The Basic pack debits Chronicle Points only; ryo is untouched. Five
-    // `rare-a` pulls keep a playset of three; the other two convert (+5 each).
+    // One pull completes the playset and the last two convert for 5 points each.
     assert.equal(opened.character.chroniclePoints, 160);
     assert.equal(opened.character.ryo, 1000);
-    assert.deepEqual(opened.value.drawn, ['rare-a', 'rare-a', 'rare-a', 'rare-a', 'rare-a']);
+    assert.deepEqual(opened.value.drawn, ['rare-a', 'rare-a', 'rare-a']);
     assert.deepEqual(opened.character.tileCards, ['rare-a', 'rare-a', 'rare-a']);
-    assert.deepEqual(opened.value.converted?.map((entry) => entry.index), [3, 4]);
+    assert.deepEqual(opened.value.converted?.map((entry) => entry.index), [1, 2]);
     assert.deepEqual(opened.value.refund, { chroniclePoints: 10, fateShards: 0 });
     const replay = applyCardPackPurchase(opened.character, cards, 'standard', 'cardpack00000001', 101, () => 0);
     assert.equal(replay.ok, true);
@@ -142,23 +141,22 @@ test('every shop pack enforces the shared 1,200 packable-card ceiling before cha
         ['common-a', { id: 'common-a', rarity: 'common' }],
     ]);
     const packables = (count: number) => Array.from({ length: count }, (_, index) => `owned-${index}`);
-    const at1195 = applyCardPackPurchase(
-        character({ tileCards: [...packables(1_195), ...STORY_PROGRESSION_CARD_IDS] }),
+    const at1197 = applyCardPackPurchase(
+        character({ tileCards: [...packables(1_197), ...STORY_PROGRESSION_CARD_IDS] }),
         cards,
         'standard',
-        'cardpack-cap-1195',
+        'cardpack-cap-1197',
         100,
         () => 0,
     );
-    assert.equal(at1195.ok, true);
-    if (at1195.ok) {
-        // Five `common-a` pulls: three kept, two converted for 5 points each.
-        assert.equal(at1195.character.chroniclePoints, 160);
-        assert.equal(at1195.character.ryo, 1000);
-        assert.equal((at1195.character.tileCards as string[]).length, 1_198 + STORY_PROGRESSION_CARD_IDS.length);
+    assert.equal(at1197.ok, true);
+    if (at1197.ok) {
+        assert.equal(at1197.character.chroniclePoints, 150);
+        assert.equal(at1197.character.ryo, 1000);
+        assert.equal((at1197.character.tileCards as string[]).length, 1_200 + STORY_PROGRESSION_CARD_IDS.length);
     }
 
-    for (const count of [1_199, 1_200]) {
+    for (const count of [1_198, 1_199, 1_200]) {
         const full = applyCardPackPurchase(
             character({ tileCards: [...packables(count), ...STORY_PROGRESSION_CARD_IDS] }),
             cards,

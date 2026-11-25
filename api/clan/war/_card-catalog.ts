@@ -2,6 +2,8 @@
  * lives exclusively in shared/chronicle-duel; no retired stats are retained. */
 import { CHRONICLE_CARD_CATALOG } from '../../../shared/chronicle-duel.js';
 import { CHRONICLE_COMMON_EXPANSION } from '../../../shared/chronicle-expansion-monsters.js';
+import { CHRONICLE_VILLAGE_MONSTERS } from '../../../shared/chronicle-village-monsters.js';
+import { CHRONICLE_VILLAGE_SUPPORT } from '../../../shared/chronicle-village-support.js';
 
 export type MarketplaceCardRarity = 'common' | 'rare' | 'epic' | 'legendary';
 export type ChronicleMarketplaceCard = { rarity: MarketplaceCardRarity };
@@ -64,7 +66,9 @@ export const STOREFRONT_ADDITIONS: Readonly<Record<string, 'marketplace' | 'shop
     'chronicle-shadow-clone': 'marketplace',
     'chronicle-reanimation-jutsu': 'marketplace',
     'chronicle-guardians-reversal': 'marketplace',
-    ...Object.fromEntries(CHRONICLE_COMMON_EXPANSION.map(card => [card.id, 'shop' as const])),
+    'chronicle-crimson-weaver': 'marketplace',
+    ...Object.fromEntries([...CHRONICLE_COMMON_EXPANSION, ...CHRONICLE_VILLAGE_MONSTERS, ...CHRONICLE_VILLAGE_SUPPORT]
+        .map(card => [card.id, 'shop' as const])),
 };
 
 const RANKED = PACKABLE.filter((card) => !(card.id in STOREFRONT_ADDITIONS)).sort(

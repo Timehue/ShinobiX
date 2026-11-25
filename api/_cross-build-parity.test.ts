@@ -293,10 +293,10 @@ describe('parity: Card Hall pack disclosure and live server pools', () => {
         assert.match(PACKS, /legendary: \{[^\n]*rarities: \['legendary'\]/);
         assert.match(GALLERY, /Elite draws a Marketplace Rare or Epic/);
         assert.match(GALLERY, /Legendary is always Legendary/);
-        // The five-card premium packs: what the server draws must match the odds text.
-        assert.match(PACKS, /'epic-five': \{[^\n]*count: 5, rarities: \['epic'\], pool: 'marketplace'/);
-        assert.match(PACKS, /'legendary-five': \{[^\n]*count: 5, rarities: \['legendary'\], pool: 'marketplace'/);
-        assert.match(GALLERY, /Epic Quintet draws five Marketplace Epics; Legendary Quintet draws five Marketplace Legendaries/);
+        // The three-card premium packs: what the server draws must match the odds text.
+        assert.match(PACKS, /'epic-five': \{[^\n]*count: 3, rarities: \['epic'\], pool: 'marketplace'/);
+        assert.match(PACKS, /'legendary-five': \{[^\n]*count: 3, rarities: \['legendary'\], pool: 'marketplace'/);
+        assert.match(GALLERY, /Epic Trio draws three Marketplace Epics; Legendary Trio draws three Marketplace Legendaries/);
     });
 
     it('draws uniformly from eligible playable cards', () => {

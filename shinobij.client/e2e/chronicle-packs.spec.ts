@@ -34,7 +34,7 @@ test('elemental purchase adopts the save, uses its wrapper art, and opens the ex
     });
     await page.goto('/e2e/fixtures/chronicle-packs.html');
     fireIds = await page.evaluate(() => (window as Window & { __qaFireIds: string[] }).__qaFireIds);
-    expect(fireIds).toHaveLength(5);
+    expect(fireIds).toHaveLength(3);
     await expect(page.getByRole('heading', { name: 'Choose your next draw' })).toBeVisible();
     const fire = page.locator('.chronicle-pack--fire');
     await fire.scrollIntoViewIfNeeded();
@@ -43,7 +43,7 @@ test('elemental purchase adopts the save, uses its wrapper art, and opens the ex
     await expect(page.getByTestId('adopted-version')).toHaveText('2');
     const opening = page.getByRole('dialog', { name: 'Fire Pack opening' });
     await expect(opening).toBeVisible();
-    await expect(opening).toHaveCSS('--pack-art', 'url("/chronicle/packs/fire.webp")');
+    await expect(opening).toHaveCSS('--pack-art', `url("${packArtUrl('fire')}")`);
     expect(requests).toHaveLength(1);
     expect(requests[0].packType).toBe('fire');
     expect(requests[0].requestId).toMatch(/^[A-Za-z0-9_-]{16,80}$/);
@@ -52,7 +52,7 @@ test('elemental purchase adopts the save, uses its wrapper art, and opens the ex
     await opening.getByRole('button', { name: /Done/ }).click();
     await expect(opening).toHaveCount(0);
     await expect(page.getByLabel('Pack balances')).toContainText('100 Chronicle Points');
-    await expect(page.getByLabel('Pack balances')).toContainText('5 owned cards');
+    await expect(page.getByLabel('Pack balances')).toContainText('3 owned cards');
 
     for (const art of ['random', 'water', 'earth', 'wind', 'lightning', 'elite-cardgame', 'legendary-cardgame']) {
         const response = await page.request.get(`/chronicle/packs/${art}.webp`);
@@ -62,10 +62,10 @@ test('elemental purchase adopts the save, uses its wrapper art, and opens the ex
 });
 
 for (const [packType, rarity, label, cost] of [
-    ['epic-five', 'epic', 'Epic Quintet Pack', 35],
-    ['legendary-five', 'legendary', 'Legendary Quintet Pack', 100],
+    ['epic-five', 'epic', 'Epic Trio Pack', 21],
+    ['legendary-five', 'legendary', 'Legendary Trio Pack', 60],
 ] as const) {
-    test(`${label}: custom foil tears open and reveals all five cards`, async ({ page }, testInfo) => {
+    test(`${label}: custom foil tears open and reveals all three cards`, async ({ page }, testInfo) => {
         const requests: Array<{ packType: string; requestId: string }> = [];
         let cards: string[] = [];
         await page.route('**/api/card-clash/open-pack', async (route) => {
@@ -81,9 +81,9 @@ for (const [packType, rarity, label, cost] of [
         cards = await page.evaluate((tier) => (window as Window & {
             __qaPremiumIds: Record<string, string[]>;
         }).__qaPremiumIds[tier], rarity);
-        expect(cards).toHaveLength(5);
-        // A five-card pack can legitimately contain five copies of one card.
-        cards = Array(5).fill(cards[0]);
+        expect(cards).toHaveLength(3);
+        // A three-card pack can legitimately contain three copies of one card.
+        cards = Array(3).fill(cards[0]);
         const listing = page.locator(`.chronicle-pack--${packType}`);
         await listing.scrollIntoViewIfNeeded();
         await expect.poll(() => listing.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
@@ -91,11 +91,11 @@ for (const [packType, rarity, label, cost] of [
         await listing.getByRole('button', { name: `Open ${label} ${cost} Fate Shards` }).click();
         await expect(page.getByTestId('adopted-version')).toHaveText('2');
         const opening = page.getByRole('dialog', { name: `${label} opening` });
-        await expect(opening).toHaveCSS('--pack-art', `url("/chronicle/packs/${packType}.webp")`);
-        await expect(opening.locator('.pack-foil__ribbon')).toHaveText(`${label} · 5 cards`);
+        await expect(opening).toHaveCSS('--pack-art', `url("${packArtUrl(packType)}")`);
+        await expect(opening.locator('.pack-foil__ribbon')).toHaveText(`${label} · 3 cards`);
         await opening.screenshot({ path: testInfo.outputPath(`${packType}-foil.png`), animations: 'disabled' });
         await tearOpenPack(opening);
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 3; i++) {
             await opening.getByRole('button', { name: 'Flip the top card', exact: true }).click();
             const revealed = opening.getByRole('button', { name: /revealed — continue/ });
             await expect(revealed).toHaveCount(1);
@@ -103,18 +103,18 @@ for (const [packType, rarity, label, cost] of [
             await expect(opening.locator('.pack-card.is-flipped')).toHaveCSS('transform', 'none');
             await revealed.click();
         }
-        await expect(opening.locator('.pack-summary__card')).toHaveCount(5);
+        await expect(opening.locator('.pack-summary__card')).toHaveCount(3);
         expect(await opening.locator('.pack-summary__card .pack-card__new').count()).toBeLessThanOrEqual(1);
         await opening.screenshot({ path: testInfo.outputPath(`${packType}-summary.png`), animations: 'disabled' });
         await opening.getByRole('button', { name: `Open another · ${cost} Fate Shards` }).click();
         await expect(page.getByTestId('adopted-version')).toHaveText('3');
         await expect(opening.getByRole('button', { name: /Tear open/ })).toBeVisible();
         await opening.getByRole('button', { name: /Skip/ }).click();
-        await expect(opening.locator('.pack-summary__card')).toHaveCount(5);
+        await expect(opening.locator('.pack-summary__card')).toHaveCount(3);
         await expect(opening.locator('.pack-summary__card .pack-card__new')).toHaveCount(0);
         await opening.getByRole('button', { name: /Done/ }).click();
         await expect(page.getByLabel('Pack balances')).toContainText(`${200 - cost * 2} Fate Shards`);
-        await expect(page.getByLabel('Pack balances')).toContainText('10 owned cards');
+        await expect(page.getByLabel('Pack balances')).toContainText('6 owned cards');
         expect(requests).toHaveLength(2);
         expect(requests[0].packType).toBe(packType);
         expect(requests[1].packType).toBe(packType);
@@ -158,7 +158,7 @@ test('every pack connects its listing to the server draw, foil, duplicate summar
         const opening = page.getByRole('dialog', { name: `${label} opening` });
         await expect(page.getByTestId('adopted-version')).toHaveText(String(expectedVersion));
         await expect(opening).toHaveCSS('--pack-art', `url("${packArtUrl(type)}")`);
-        const count = type === 'epic' || type === 'legendary' ? 1 : 5;
+        const count = type === 'epic' || type === 'legendary' ? 1 : 3;
         await expect(opening.locator('.pack-foil__ribbon')).toHaveText(`${label} · ${count} ${count === 1 ? 'card' : 'cards'}`);
         await tearOpenPack(opening);
         await expect(opening.getByRole('button', { name: 'Flip the top card', exact: true })).toBeVisible();

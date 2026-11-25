@@ -76,7 +76,7 @@ for (const type of CARD_PACK_TYPES) {
         const pending = renderedPackButton(character, type);
         assert.equal(pending.disabled, false);
         assert.match(pending.text, /Recover/);
-        assert.match(pending.text, type === 'epic' ? /(?<!\d)6 Fate Shards/ : type === 'legendary' ? /(?<!\d)20 Fate Shards/ : type === 'epic-five' ? /35 Fate Shards/ : type === 'legendary-five' ? /100 Fate Shards/ : /100 Chronicle Points/);
+        assert.match(pending.text, type === 'epic' ? /(?<!\d)6 Fate Shards/ : type === 'legendary' ? /(?<!\d)20 Fate Shards/ : type === 'epic-five' ? /21 Fate Shards/ : type === 'legendary-five' ? /60 Fate Shards/ : /100 Chronicle Points/);
     });
 }
 
@@ -106,12 +106,12 @@ test('malformed or another account pending state cannot enable an unfunded pack'
     assert.equal(renderedPackButton(character, 'fire').disabled, true);
 });
 
-for (const [type, cost] of [['epic-five', 35], ['legendary-five', 100]] as const) {
-    test(`${type}: purchase requires its full price and displays five guaranteed cards`, () => {
+for (const [type, cost] of [['epic-five', 21], ['legendary-five', 60]] as const) {
+    test(`${type}: purchase requires its full price and displays three guaranteed cards`, () => {
         assert.equal(renderedPackButton(fixture({ fateShards: cost - 1 }), type).disabled, true);
         assert.equal(renderedPackButton(fixture({ fateShards: cost }), type).disabled, false);
-        assert.match(renderedGallery(fixture()), /5 random Epic cards/);
-        assert.match(renderedGallery(fixture()), /5 random Legendary cards/);
+        assert.match(renderedGallery(fixture()), /3 random Epic cards/);
+        assert.match(renderedGallery(fixture()), /3 random Legendary cards/);
         const discounted = Math.round(cost * .95);
         cacheVillageElders('Pack test village', ['', 'Rin', ''], Date.now() + 86400000);
         const tradeCharacter = fixture({ village: 'Pack test village', fateShards: discounted, elderFocus: 'trade' });

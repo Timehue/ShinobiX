@@ -1,0 +1,70 @@
+{
+  "provider": "built-in image_gen",
+  "revision": 2,
+  "prompts": {
+    "single": "Edit this illustrated single-card pack wrapper: show exactly ONE upright card in the middle of the image, in place of the entire fan of cards. Retain the existing central card back, its distinctive emblem, the landscape, palette, moon or sun and painterly textures. Restore the original landscape where all side cards used to be. Full-bleed portrait, no lettering or numerals.",
+    "trio": "Precise game wrapper edit. Replace the fan in the supplied original illustration with EXACTLY THREE cards: a single upright front card, one left card and one right card. Remove both outermost cards completely, restore scenery behind them. Keep original full-bleed 2:3 portrait illustration, palette, central emblem, detailed landscape and texture. Make the three cards clearly countable, with exactly three top edges, comfortable lateral space. No lettering or numerals."
+  },
+  "assets": [
+    {
+      "file": "earth.webp",
+      "cardsShown": 3,
+      "sha256": "48cc5924f5933fe888987d26714037ff8cce70cdd3cc3d295431998745824b89"
+    },
+    {
+      "file": "fire.webp",
+      "cardsShown": 3,
+      "sha256": "5f334bd68a55db8e4f6f5679739b8065588738c6ad66220665709f959f01d433"
+    },
+    {
+      "file": "water.webp",
+      "cardsShown": 3,
+      "sha256": "a034abe10dcde058be7bdcf340c4216ffbed1ce9970c79eda42d1875818e4f05"
+    },
+    {
+      "file": "wind.webp",
+      "cardsShown": 3,
+      "sha256": "3a3f904d7b94518292b41cc7f49a632469ec4ffa71f1d3edc1d6cdf90cbfe628"
+    },
+    {
+      "file": "lightning.webp",
+      "cardsShown": 3,
+      "sha256": "132d1bafe8bde87c5f8175e15e64aecdda04566e0873e7c1f86aba37d980985d"
+    },
+    {
+      "file": "random.webp",
+      "cardsShown": 3,
+      "sha256": "a7a31bf9088c2a8643bf1c80b46ddf33e8a24c4246ef5387b919de1ca38ea7d9"
+    },
+    {
+      "file": "elite-cardgame.webp",
+      "cardsShown": 1,
+      "sha256": "66f3e709985f9c32cc40a10122e2ca3dd17f471099a021b94acc6fc4b015094b"
+    },
+    {
+      "file": "legendary-cardgame.webp",
+      "cardsShown": 1,
+      "sha256": "8f1490dabeb119361993ca18667d4393243cada7d2090f8fa0e2a20ac5142c92"
+    },
+    {
+      "file": "epic-five.webp",
+      "cardsShown": 3,
+      "sha256": "e7117acff42c32bcc1b47090e8df41d1b9800aa39b271e7e8bff674b1f8f09be"
+    },
+    {
+      "file": "legendary-five.webp",
+      "cardsShown": 3,
+      "sha256": "c23b876837cbed175cf87199238f49489c07612602febdb390a321977ed712e2"
+    },
+    {
+      "file": "snare.webp",
+      "cardsShown": null,
+      "sha256": "715a9c8a33af423e891df5352d49af518f26e165b85a9ebf169e8e1083f979de"
+    },
+    {
+      "file": "jutsu.webp",
+      "cardsShown": null,
+      "sha256": "b9b3049cfaeb726e8e68629fe6b344b06e49c389da8d4ce488c7281920ec970d"
+    }
+  ]
+}

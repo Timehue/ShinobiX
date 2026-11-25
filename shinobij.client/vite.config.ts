@@ -20,6 +20,7 @@ const STATIC_LITERAL_TABLES: ReadonlyArray<readonly [string, readonly string[]]>
 ];
 import { progressionCatalogDelivery } from './scripts/progression-catalog-delivery.mjs';
 import { CHRONICLE_LEGACY_SOURCES } from '../shared/legacy-card-sources.ts';
+import { SUPPORT_CARDS } from '../shared/chronicle-duel.ts';
 import { hollowRifts } from './src/data/hollow-rifts.ts';
 import { fileURLToPath, URL } from 'node:url';
 
@@ -502,7 +503,7 @@ export default defineConfig({
                 if (literalTables) return { code: literalTables[1].reduce((code, name) => packStaticCatalogLiteral(code, name), source), map: null };
             },
         },
-        progressionCatalogDelivery(),
+        progressionCatalogDelivery(SUPPORT_CARDS),
         plugin(),
         runtimePublicAssetsPlugin(),
         ViteImageOptimizer({
@@ -1333,7 +1334,7 @@ export default defineConfig({
         }
     },
     worker: {
-        plugins: () => [progressionCatalogDelivery(), packedPoseDecoder()],
+        plugins: () => [progressionCatalogDelivery(SUPPORT_CARDS), packedPoseDecoder()],
     },
     build: {
         // 2026-09-02 Railway parity drain: production-length public build args

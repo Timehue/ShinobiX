@@ -130,12 +130,11 @@ function useStageFigures(): boolean {
   return enabled;
 }
 
-/* A summoned attacker's cut-out creature render (generated from its own
-   card art by scripts/gen-chronicle-figures.mjs). Progressive: the framed
-   card stays the base truth; once the figure loads, the zone's :has()
-   styling fades the card and the creature stands on the stage. A missing
-   figure (no asset for this card yet) simply never appears. */
-function ChronicleFigure({ cardId, elementColor, flip, back }: { cardId: string; elementColor?: string; flip?: boolean; back?: boolean }) {
+/* Keep the framed card visible until its matching battlefield figure loads. */
+function ChronicleFigure({ cardId, elementColor, flip, back, onDisplay }: {
+  cardId: string; elementColor?: string; flip?: boolean; back?: boolean;
+  onDisplay: (src: string) => void;
+}) {
   // The player's own summons prefer the back-view render (they face
   // up-field at the enemy, the stage convention); the front cut-out is
   // the fallback, and a missing figure falls through to the card standee.
@@ -159,7 +158,10 @@ function ChronicleFigure({ cardId, elementColor, flip, back }: { cardId: string;
         alt=""
         draggable={false}
         loading="lazy"
-        onLoad={() => setLoaded(true)}
+        onLoad={() => {
+          setLoaded(true);
+          onDisplay(src);
+        }}
         onError={() => {
           setLoaded(false);
           setSourceIndex((index) => index + 1);
@@ -381,6 +383,7 @@ export function ChronicleDuelBoard({
   const meFloatRef = useRef<HTMLSpanElement | null>(null);
   const foeFloatRef = useRef<HTMLSpanElement | null>(null);
   const zoneEls = useRef(new Map<string, HTMLButtonElement>());
+  const displayedFigures = useRef(new Map<string, string>());
   const prevStateRef = useRef<ChronicleProjection | null>(null);
   const reactionStateRef = useRef<ChronicleProjection | null>(null);
   const seenLogTail = useRef<string | undefined>(undefined);
@@ -740,7 +743,10 @@ export function ChronicleDuelBoard({
     const prev = prevStateRef.current;
     prevStateRef.current = state;
     if (!prev || prev === state) return;
-    if (state.turnNumber < prev.turnNumber) return; // different duel
+    if (state.turnNumber < prev.turnNumber) {
+      displayedFigures.current.clear();
+      return; // different duel
+    }
     const seenEvents = new Set(prev.events?.map(event => event.id));
     const newEvents = state.events?.filter(event => !seenEvents.has(event.id)) ?? [];
     // A direct attack has no Monster to land on: the blow crosses the table to
@@ -775,17 +781,13 @@ export function ChronicleDuelBoard({
           const card = was.cardId
             ? (cardsById[was.cardId] ?? getChronicleCard(was.cardId))
             : undefined;
-          // A slain face-up attacker dies as its creature, not its card:
-          // the ghost carries the figure art the player was looking at
-          // (guaranteed for the whole tc- set; other pools fall back to
-          // the card image the standee showed).
-          const figureGhost =
-            was.faceUp && was.position === "attack" && was.cardId?.startsWith("tc-")
-              ? chronicleFigureSources(was.cardId, prefix === "me")[0]
-              : undefined;
+          const figureGhost = displayedFigures.current.get(was.instanceId);
           const returned = newEvents.some(event => event.affectedZones?.some(zone => zone.side === sideKey && zone.row === "monster" && zone.zoneIndex === index && zone.change === "returned"));
           spawnCardGhost(el, figureGhost ?? card?.image, prefix, Boolean(figureGhost), returned ? "returned" : "destroyed");
           if (!returned) pulseFx(el, "fx-destroyed", 580);
+        }
+        if (was && (monster?.instanceId !== was.instanceId || !monster.faceUp || monster.position !== "attack")) {
+          displayedFigures.current.delete(was.instanceId);
         }
       });
       now.magicTrapZones.forEach((zone, index) => {
@@ -1009,6 +1011,7 @@ export function ChronicleDuelBoard({
           </span>
           {state.responseWindow ? <em>SNARE RESPONSE</em> : null}
           {missedTurnNotice ? <em role="status">{missedTurnNotice}</em> : null}
+          {state.attacksBlocked && state.status === "active" ? <em>Crimson Weaver’s web prevents attacks this turn.</em> : null}
           {aiActing ? (
             <em className="chronicle-ai-acting" aria-live="polite">
               {foeName} is acting
@@ -1254,8 +1257,9 @@ export function ChronicleDuelBoard({
                       />
                       {stageFigures && monster.faceUp && monster.position === "attack" && monster.cardId ? (
                         <ChronicleFigure
-                          key={monster.cardId}
+                          key={monster.instanceId}
                           cardId={monster.cardId}
+                          onDisplay={src => displayedFigures.current.set(monster.instanceId, src)}
                           elementColor={figureElementColor(cardsById[monster.cardId] ?? getChronicleCard(monster.cardId))}
                           flip={figureFlip(monster.cardId, index)}
                         />
@@ -1415,8 +1419,9 @@ export function ChronicleDuelBoard({
                       />
                       {stageFigures && monster.faceUp && monster.position === "attack" && monster.cardId ? (
                         <ChronicleFigure
-                          key={monster.cardId}
+                          key={monster.instanceId}
                           cardId={monster.cardId}
+                          onDisplay={src => displayedFigures.current.set(monster.instanceId, src)}
                           elementColor={figureElementColor(cardsById[monster.cardId] ?? getChronicleCard(monster.cardId))}
                           flip={figureFlip(monster.cardId, index)}
                           back

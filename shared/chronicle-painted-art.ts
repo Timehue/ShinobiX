@@ -321,6 +321,107 @@ export const CHRONICLE_PAINTED_ART: Readonly<Record<string, string>> = Object.fr
   "chronicle-sparkbill-kingfisher": "/chronicle/cards/chronicle-sparkbill-kingfisher-painted-v2.webp",
   "chronicle-wireweb-spider": "/chronicle/cards/chronicle-wireweb-spider-painted-v2.webp",
   "chronicle-thunderpad-marten": "/chronicle/cards/chronicle-thunderpad-marten-painted-v2.webp",
+  "chronicle-crimson-weaver": "/chronicle/cards/chronicle-crimson-weaver-painted-v2.webp",
+  "chronicle-spice-mill-loper": "/chronicle/cards/chronicle-spice-mill-loper-painted-v2.webp",
+  "chronicle-saffron-hoopoe": "/chronicle/cards/chronicle-saffron-hoopoe-painted-v2.webp",
+  "chronicle-coalshoe-tapir": "/chronicle/cards/chronicle-coalshoe-tapir-painted-v2.webp",
+  "chronicle-clinker-pika": "/chronicle/cards/chronicle-clinker-pika-painted-v2.webp",
+  "chronicle-firethorn-silkmaker": "/chronicle/cards/chronicle-firethorn-silkmaker-painted-v2.webp",
+  "chronicle-ember-binturong": "/chronicle/cards/chronicle-ember-binturong-painted-v2.webp",
+  "chronicle-fluebrush-jester": "/chronicle/cards/chronicle-fluebrush-jester-painted-v2.webp",
+  "chronicle-persimmon-glazer": "/chronicle/cards/chronicle-persimmon-glazer-painted-v2.webp",
+  "chronicle-redbellows-lung": "/chronicle/cards/chronicle-redbellows-lung-painted-v2.webp",
+  "chronicle-ashpit-hoatzin": "/chronicle/cards/chronicle-ashpit-hoatzin-painted-v2.webp",
+  "chronicle-candleberry-bushling": "/chronicle/cards/chronicle-candleberry-bushling-painted-v2.webp",
+  "chronicle-brasspot-jerboa": "/chronicle/cards/chronicle-brasspot-jerboa-painted-v2.webp",
+  "chronicle-blister-comb": "/chronicle/cards/chronicle-blister-comb-painted-v2.webp",
+  "chronicle-copper-ladle-auntie": "/chronicle/cards/chronicle-copper-ladle-auntie-painted-v2.webp",
+  "chronicle-hearth-loaf": "/chronicle/cards/chronicle-hearth-loaf-painted-v2.webp",
+  "chronicle-scoria-hyrax": "/chronicle/cards/chronicle-scoria-hyrax-painted-v2.webp",
+  "chronicle-bellowsnose-peccary": "/chronicle/cards/chronicle-bellowsnose-peccary-painted-v2.webp",
+  "chronicle-cochineal-brooch": "/chronicle/cards/chronicle-cochineal-brooch-painted-v2.webp",
+  "chronicle-firebrick-caracal": "/chronicle/cards/chronicle-firebrick-caracal-painted-v2.webp",
+  "chronicle-kiln-door-keeper": "/chronicle/cards/chronicle-kiln-door-keeper-painted-v2.webp",
+  "chronicle-ripple-nautilus": "/chronicle/cards/chronicle-ripple-nautilus-painted-v2.webp",
+  "chronicle-reedbed-bittern": "/chronicle/cards/chronicle-reedbed-bittern-painted-v2.webp",
+  "chronicle-washbasin-skipper": "/chronicle/cards/chronicle-washbasin-skipper-painted-v2.webp",
+  "chronicle-dewspout-tap": "/chronicle/cards/chronicle-dewspout-tap-painted-v2.webp",
+  "chronicle-brackish-mudskipper": "/chronicle/cards/chronicle-brackish-mudskipper-painted-v2.webp",
+  "chronicle-pearl-diver-nami": "/chronicle/cards/chronicle-pearl-diver-nami-painted-v2.webp",
+  "chronicle-silkfin-nudibranch": "/chronicle/cards/chronicle-silkfin-nudibranch-painted-v2.webp",
+  "chronicle-tea-gourd-drifter": "/chronicle/cards/chronicle-tea-gourd-drifter-painted-v2.webp",
+  "chronicle-waterwheel-peddler": "/chronicle/cards/chronicle-waterwheel-peddler-painted-v2.webp",
+  "chronicle-limpet-bell": "/chronicle/cards/chronicle-limpet-bell-painted-v2.webp",
+  "chronicle-dockside-cormorant": "/chronicle/cards/chronicle-dockside-cormorant-painted-v2.webp",
+  "chronicle-cress-sprig": "/chronicle/cards/chronicle-cress-sprig-painted-v2.webp",
+  "chronicle-bluecup-anemone": "/chronicle/cards/chronicle-bluecup-anemone-painted-v2.webp",
+  "chronicle-millrace-desman": "/chronicle/cards/chronicle-millrace-desman-painted-v2.webp",
+  "chronicle-rill-dipper": "/chronicle/cards/chronicle-rill-dipper-painted-v2.webp",
+  "chronicle-pond-siphon": "/chronicle/cards/chronicle-pond-siphon-painted-v2.webp",
+  "chronicle-harbor-sea-pen": "/chronicle/cards/chronicle-harbor-sea-pen-painted-v2.webp",
+  "chronicle-rain-chain-tender": "/chronicle/cards/chronicle-rain-chain-tender-painted-v2.webp",
+  "chronicle-tidepool-cuttlefish": "/chronicle/cards/chronicle-tidepool-cuttlefish-painted-v2.webp",
+  "chronicle-sluice-cassowary": "/chronicle/cards/chronicle-sluice-cassowary-painted-v2.webp",
+  "chronicle-burdock-burrling": "/chronicle/cards/chronicle-burdock-burrling-painted-v2.webp",
+  "chronicle-claystamp-scribe": "/chronicle/cards/chronicle-claystamp-scribe-painted-v2.webp",
+  "chronicle-kerneltip-tenrec": "/chronicle/cards/chronicle-kerneltip-tenrec-painted-v2.webp",
+  "chronicle-granite-wombat": "/chronicle/cards/chronicle-granite-wombat-painted-v2.webp",
+  "chronicle-tuber-mandrake": "/chronicle/cards/chronicle-tuber-mandrake-painted-v2.webp",
+  "chronicle-thimble-cobbler": "/chronicle/cards/chronicle-thimble-cobbler-painted-v2.webp",
+  "chronicle-sandglass-sowbug": "/chronicle/cards/chronicle-sandglass-sowbug-painted-v2.webp",
+  "chronicle-stubble-bustard": "/chronicle/cards/chronicle-stubble-bustard-painted-v2.webp",
+  "chronicle-terrace-cassava": "/chronicle/cards/chronicle-terrace-cassava-painted-v2.webp",
+  "chronicle-gravel-sifter": "/chronicle/cards/chronicle-gravel-sifter-painted-v2.webp",
+  "chronicle-ridge-dikdik": "/chronicle/cards/chronicle-ridge-dikdik-painted-v2.webp",
+  "chronicle-clay-ocarina": "/chronicle/cards/chronicle-clay-ocarina-painted-v2.webp",
+  "chronicle-earthstar-puffball": "/chronicle/cards/chronicle-earthstar-puffball-painted-v2.webp",
+  "chronicle-barley-thresher": "/chronicle/cards/chronicle-barley-thresher-painted-v2.webp",
+  "chronicle-ochre-aardvark": "/chronicle/cards/chronicle-ochre-aardvark-painted-v2.webp",
+  "chronicle-nutmeg-mortar": "/chronicle/cards/chronicle-nutmeg-mortar-painted-v2.webp",
+  "chronicle-quartz-agouti": "/chronicle/cards/chronicle-quartz-agouti-painted-v2.webp",
+  "chronicle-terrace-tamandua": "/chronicle/cards/chronicle-terrace-tamandua-painted-v2.webp",
+  "chronicle-tile-setter-jun": "/chronicle/cards/chronicle-tile-setter-jun-painted-v2.webp",
+  "chronicle-granary-menhir": "/chronicle/cards/chronicle-granary-menhir-painted-v2.webp",
+  "chronicle-maple-samara": "/chronicle/cards/chronicle-maple-samara-painted-v2.webp",
+  "chronicle-pennant-mender": "/chronicle/cards/chronicle-pennant-mender-painted-v2.webp",
+  "chronicle-cloudruff-alpaca": "/chronicle/cards/chronicle-cloudruff-alpaca-painted-v2.webp",
+  "chronicle-bamboo-whistler": "/chronicle/cards/chronicle-bamboo-whistler-painted-v2.webp",
+  "chronicle-sailcloth-tern": "/chronicle/cards/chronicle-sailcloth-tern-painted-v2.webp",
+  "chronicle-spindle-winder": "/chronicle/cards/chronicle-spindle-winder-painted-v2.webp",
+  "chronicle-windup-anemometer": "/chronicle/cards/chronicle-windup-anemometer-painted-v2.webp",
+  "chronicle-eave-swiftlet": "/chronicle/cards/chronicle-eave-swiftlet-painted-v2.webp",
+  "chronicle-pollen-parasol": "/chronicle/cards/chronicle-pollen-parasol-painted-v2.webp",
+  "chronicle-ribbon-frigatebird": "/chronicle/cards/chronicle-ribbon-frigatebird-painted-v2.webp",
+  "chronicle-chaff-winnower": "/chronicle/cards/chronicle-chaff-winnower-painted-v2.webp",
+  "chronicle-foldstep-doll": "/chronicle/cards/chronicle-foldstep-doll-painted-v2.webp",
+  "chronicle-drift-kapok": "/chronicle/cards/chronicle-drift-kapok-painted-v2.webp",
+  "chronicle-crested-seriema": "/chronicle/cards/chronicle-crested-seriema-painted-v2.webp",
+  "chronicle-airfoil-colugo": "/chronicle/cards/chronicle-airfoil-colugo-painted-v2.webp",
+  "chronicle-reed-organ-piper": "/chronicle/cards/chronicle-reed-organ-piper-painted-v2.webp",
+  "chronicle-saltwind-albatross": "/chronicle/cards/chronicle-saltwind-albatross-painted-v2.webp",
+  "chronicle-bunting-reel": "/chronicle/cards/chronicle-bunting-reel-painted-v2.webp",
+  "chronicle-gable-weathervane": "/chronicle/cards/chronicle-gable-weathervane-painted-v2.webp",
+  "chronicle-windbreak-yak": "/chronicle/cards/chronicle-windbreak-yak-painted-v2.webp",
+  "chronicle-amber-tuning-fork": "/chronicle/cards/chronicle-amber-tuning-fork-painted-v2.webp",
+  "chronicle-buzzwing-cicada": "/chronicle/cards/chronicle-buzzwing-cicada-painted-v2.webp",
+  "chronicle-glowcap-chanterelle": "/chronicle/cards/chronicle-glowcap-chanterelle-painted-v2.webp",
+  "chronicle-coil-patcher": "/chronicle/cards/chronicle-coil-patcher-painted-v2.webp",
+  "chronicle-glass-fuse-sprite": "/chronicle/cards/chronicle-glass-fuse-sprite-painted-v2.webp",
+  "chronicle-clickjaw-tarsier": "/chronicle/cards/chronicle-clickjaw-tarsier-painted-v2.webp",
+  "chronicle-storm-dial-reader": "/chronicle/cards/chronicle-storm-dial-reader-painted-v2.webp",
+  "chronicle-induction-bobbin": "/chronicle/cards/chronicle-induction-bobbin-painted-v2.webp",
+  "chronicle-magnetite-kiwi": "/chronicle/cards/chronicle-magnetite-kiwi-painted-v2.webp",
+  "chronicle-chime-hammer": "/chronicle/cards/chronicle-chime-hammer-painted-v2.webp",
+  "chronicle-blueflash-roller": "/chronicle/cards/chronicle-blueflash-roller-painted-v2.webp",
+  "chronicle-pulse-jelly": "/chronicle/cards/chronicle-pulse-jelly-painted-v2.webp",
+  "chronicle-tinplate-music-box": "/chronicle/cards/chronicle-tinplate-music-box-painted-v2.webp",
+  "chronicle-lodestone-numbat": "/chronicle/cards/chronicle-lodestone-numbat-painted-v2.webp",
+  "chronicle-rain-rod-fitter": "/chronicle/cards/chronicle-rain-rod-fitter-painted-v2.webp",
+  "chronicle-stormglass-prism": "/chronicle/cards/chronicle-stormglass-prism-painted-v2.webp",
+  "chronicle-voltstripe-zorilla": "/chronicle/cards/chronicle-voltstripe-zorilla-painted-v2.webp",
+  "chronicle-sundial-springer": "/chronicle/cards/chronicle-sundial-springer-painted-v2.webp",
+  "chronicle-switchboard-kudu": "/chronicle/cards/chronicle-switchboard-kudu-painted-v2.webp",
+  "chronicle-groundplate-bell": "/chronicle/cards/chronicle-groundplate-bell-painted-v2.webp",
   "story-wandering-sage": "/chronicle/cards/story-wandering-sage-painted-v2.webp",
   "summon-cinderhorn-qilin": "/chronicle/cards/summon-cinderhorn-qilin-painted-v2.webp",
   "summon-rimetide-leviathan": "/chronicle/cards/summon-rimetide-leviathan-painted-v2.webp",
@@ -435,6 +536,16 @@ export const CHRONICLE_PAINTED_ART: Readonly<Record<string, string>> = Object.fr
   "chronicle-shadow-clone": "/chronicle/cards/chronicle-shadow-clone-painted-v2.webp",
   "chronicle-reanimation-jutsu": "/chronicle/cards/chronicle-reanimation-jutsu-painted-v2.webp",
   "chronicle-guardians-reversal": "/chronicle/cards/chronicle-guardians-reversal-painted-v2.webp",
+  "chronicle-bandage-knot": "/chronicle/cards/chronicle-bandage-knot-painted-v2.webp",
+  "chronicle-borrowed-footing": "/chronicle/cards/chronicle-borrowed-footing-painted-v2.webp",
+  "chronicle-reedwall-stitch": "/chronicle/cards/chronicle-reedwall-stitch-painted-v2.webp",
+  "chronicle-errand-ledger": "/chronicle/cards/chronicle-errand-ledger-painted-v2.webp",
+  "chronicle-mended-armguard": "/chronicle/cards/chronicle-mended-armguard-painted-v2.webp",
+  "chronicle-rattle-cord": "/chronicle/cards/chronicle-rattle-cord-painted-v2.webp",
+  "chronicle-soft-earth-catch": "/chronicle/cards/chronicle-soft-earth-catch-painted-v2.webp",
+  "chronicle-rebound-tassel": "/chronicle/cards/chronicle-rebound-tassel-painted-v2.webp",
+  "chronicle-clattering-shutters": "/chronicle/cards/chronicle-clattering-shutters-painted-v2.webp",
+  "chronicle-lantern-feint": "/chronicle/cards/chronicle-lantern-feint-painted-v2.webp",
   "chronicle-shadow-double": "/chronicle/cards/chronicle-shadow-double-painted-v2.webp"
 });
 
@@ -1039,6 +1150,570 @@ export const CHRONICLE_PAINTED_FIGURES: Readonly<Record<string, { front: string;
     "front": "/chronicle/figures/tc-150-painted-v2.webp",
     "back": "/chronicle/figures/tc-150-painted-v2-back.webp"
   },
+  "legacy-first-flame": {
+    "front": "/chronicle/figures/legacy-first-flame-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-first-flame-painted-v2-back.webp"
+  },
+  "legacy-gate-opener": {
+    "front": "/chronicle/figures/legacy-gate-opener-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-gate-opener-painted-v2-back.webp"
+  },
+  "legacy-hundred-storms": {
+    "front": "/chronicle/figures/legacy-hundred-storms-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-hundred-storms-painted-v2-back.webp"
+  },
+  "legacy-duel-sovereign": {
+    "front": "/chronicle/figures/legacy-duel-sovereign-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-duel-sovereign-painted-v2-back.webp"
+  },
+  "legacy-silent-empire": {
+    "front": "/chronicle/figures/legacy-silent-empire-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-silent-empire-painted-v2-back.webp"
+  },
+  "legacy-last-bastion": {
+    "front": "/chronicle/figures/legacy-last-bastion-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-last-bastion-painted-v2-back.webp"
+  },
+  "legacy-founders-shadow": {
+    "front": "/chronicle/figures/legacy-founders-shadow-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-founders-shadow-painted-v2-back.webp"
+  },
+  "legacy-world-awakener": {
+    "front": "/chronicle/figures/legacy-world-awakener-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-world-awakener-painted-v2-back.webp"
+  },
+  "legacy-horizons-end": {
+    "front": "/chronicle/figures/legacy-horizons-end-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-horizons-end-painted-v2-back.webp"
+  },
+  "legacy-deathless-ember": {
+    "front": "/chronicle/figures/legacy-deathless-ember-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-deathless-ember-painted-v2-back.webp"
+  },
+  "legacy-elemental-cataclysm": {
+    "front": "/chronicle/figures/legacy-elemental-cataclysm-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-elemental-cataclysm-painted-v2-back.webp"
+  },
+  "legacy-thousand-seals": {
+    "front": "/chronicle/figures/legacy-thousand-seals-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-thousand-seals-painted-v2-back.webp"
+  },
+  "legacy-moonlit-ghost": {
+    "front": "/chronicle/figures/legacy-moonlit-ghost-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-moonlit-ghost-painted-v2-back.webp"
+  },
+  "legacy-void-whisper": {
+    "front": "/chronicle/figures/legacy-void-whisper-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-void-whisper-painted-v2-back.webp"
+  },
+  "legacy-arena-demon": {
+    "front": "/chronicle/figures/legacy-arena-demon-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-arena-demon-painted-v2-back.webp"
+  },
+  "legacy-unbroken-body": {
+    "front": "/chronicle/figures/legacy-unbroken-body-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-unbroken-body-painted-v2-back.webp"
+  },
+  "legacy-blade-saint": {
+    "front": "/chronicle/figures/legacy-blade-saint-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-blade-saint-painted-v2-back.webp"
+  },
+  "legacy-thousand-cuts": {
+    "front": "/chronicle/figures/legacy-thousand-cuts-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-thousand-cuts-painted-v2-back.webp"
+  },
+  "legacy-duel-king": {
+    "front": "/chronicle/figures/legacy-duel-king-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-duel-king-painted-v2-back.webp"
+  },
+  "legacy-village-reaper": {
+    "front": "/chronicle/figures/legacy-village-reaper-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-village-reaper-painted-v2-back.webp"
+  },
+  "legacy-bloodstained-path": {
+    "front": "/chronicle/figures/legacy-bloodstained-path-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-bloodstained-path-painted-v2-back.webp"
+  },
+  "legacy-gatebreaker": {
+    "front": "/chronicle/figures/legacy-gatebreaker-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-gatebreaker-painted-v2-back.webp"
+  },
+  "legacy-trial-conqueror": {
+    "front": "/chronicle/figures/legacy-trial-conqueror-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-trial-conqueror-painted-v2-back.webp"
+  },
+  "legacy-ancient-hunter": {
+    "front": "/chronicle/figures/legacy-ancient-hunter-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-ancient-hunter-painted-v2-back.webp"
+  },
+  "legacy-ashen-will": {
+    "front": "/chronicle/figures/legacy-ashen-will-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-ashen-will-painted-v2-back.webp"
+  },
+  "legacy-storm-fang": {
+    "front": "/chronicle/figures/legacy-storm-fang-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-storm-fang-painted-v2-back.webp"
+  },
+  "legacy-frostbound-shield": {
+    "front": "/chronicle/figures/legacy-frostbound-shield-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-frostbound-shield-painted-v2-back.webp"
+  },
+  "legacy-moonlit-oath": {
+    "front": "/chronicle/figures/legacy-moonlit-oath-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-moonlit-oath-painted-v2-back.webp"
+  },
+  "legacy-village-guardian": {
+    "front": "/chronicle/figures/legacy-village-guardian-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-village-guardian-painted-v2-back.webp"
+  },
+  "legacy-oathkeeper": {
+    "front": "/chronicle/figures/legacy-oathkeeper-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-oathkeeper-painted-v2-back.webp"
+  },
+  "legacy-mapless-one": {
+    "front": "/chronicle/figures/legacy-mapless-one-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-mapless-one-painted-v2-back.webp"
+  },
+  "legacy-shrine-seeker": {
+    "front": "/chronicle/figures/legacy-shrine-seeker-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-shrine-seeker-painted-v2-back.webp"
+  },
+  "legacy-beast-sovereign": {
+    "front": "/chronicle/figures/legacy-beast-sovereign-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-beast-sovereign-painted-v2-back.webp"
+  },
+  "legacy-silent-gambit": {
+    "front": "/chronicle/figures/legacy-silent-gambit-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-silent-gambit-painted-v2-back.webp"
+  },
+  "legacy-warborn-banner": {
+    "front": "/chronicle/figures/legacy-warborn-banner-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-warborn-banner-painted-v2-back.webp"
+  },
+  "legacy-elemental-storm": {
+    "front": "/chronicle/figures/legacy-elemental-storm-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-elemental-storm-painted-v2-back.webp"
+  },
+  "legacy-burning-vanguard": {
+    "front": "/chronicle/figures/legacy-burning-vanguard-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-burning-vanguard-painted-v2-back.webp"
+  },
+  "legacy-chakra-tempest": {
+    "front": "/chronicle/figures/legacy-chakra-tempest-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-chakra-tempest-painted-v2-back.webp"
+  },
+  "legacy-stormcallers-path": {
+    "front": "/chronicle/figures/legacy-stormcallers-path-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-stormcallers-path-painted-v2-back.webp"
+  },
+  "legacy-shadow-strategist": {
+    "front": "/chronicle/figures/legacy-shadow-strategist-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-shadow-strategist-painted-v2-back.webp"
+  },
+  "legacy-silent-fang": {
+    "front": "/chronicle/figures/legacy-silent-fang-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-silent-fang-painted-v2-back.webp"
+  },
+  "legacy-dream-weaver": {
+    "front": "/chronicle/figures/legacy-dream-weaver-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-dream-weaver-painted-v2-back.webp"
+  },
+  "legacy-mirage-dancer": {
+    "front": "/chronicle/figures/legacy-mirage-dancer-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-mirage-dancer-painted-v2-back.webp"
+  },
+  "legacy-iron-fist": {
+    "front": "/chronicle/figures/legacy-iron-fist-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-iron-fist-painted-v2-back.webp"
+  },
+  "legacy-bloodied-knuckle": {
+    "front": "/chronicle/figures/legacy-bloodied-knuckle-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-bloodied-knuckle-painted-v2-back.webp"
+  },
+  "legacy-mountain-stance": {
+    "front": "/chronicle/figures/legacy-mountain-stance-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-mountain-stance-painted-v2-back.webp"
+  },
+  "legacy-crashing-wave": {
+    "front": "/chronicle/figures/legacy-crashing-wave-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-crashing-wave-painted-v2-back.webp"
+  },
+  "legacy-warborn-blade": {
+    "front": "/chronicle/figures/legacy-warborn-blade-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-warborn-blade-painted-v2-back.webp"
+  },
+  "legacy-crimson-duelist": {
+    "front": "/chronicle/figures/legacy-crimson-duelist-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-crimson-duelist-painted-v2-back.webp"
+  },
+  "legacy-quiet-scabbard": {
+    "front": "/chronicle/figures/legacy-quiet-scabbard-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-quiet-scabbard-painted-v2-back.webp"
+  },
+  "legacy-hunters-edge": {
+    "front": "/chronicle/figures/legacy-hunters-edge-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-hunters-edge-painted-v2-back.webp"
+  },
+  "legacy-proving-grounds": {
+    "front": "/chronicle/figures/legacy-proving-grounds-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-proving-grounds-painted-v2-back.webp"
+  },
+  "legacy-ranked-ascendant": {
+    "front": "/chronicle/figures/legacy-ranked-ascendant-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-ranked-ascendant-painted-v2-back.webp"
+  },
+  "legacy-giant-slayer": {
+    "front": "/chronicle/figures/legacy-giant-slayer-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-giant-slayer-painted-v2-back.webp"
+  },
+  "legacy-wall-of-defiance": {
+    "front": "/chronicle/figures/legacy-wall-of-defiance-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-wall-of-defiance-painted-v2-back.webp"
+  },
+  "legacy-hollow-seeker": {
+    "front": "/chronicle/figures/legacy-hollow-seeker-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-hollow-seeker-painted-v2-back.webp"
+  },
+  "legacy-tower-climber": {
+    "front": "/chronicle/figures/legacy-tower-climber-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-tower-climber-painted-v2-back.webp"
+  },
+  "legacy-mission-hound": {
+    "front": "/chronicle/figures/legacy-mission-hound-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-mission-hound-painted-v2-back.webp"
+  },
+  "legacy-beast-tracker": {
+    "front": "/chronicle/figures/legacy-beast-tracker-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-beast-tracker-painted-v2-back.webp"
+  },
+  "legacy-boss-breaker": {
+    "front": "/chronicle/figures/legacy-boss-breaker-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-boss-breaker-painted-v2-back.webp"
+  },
+  "legacy-dungeon-delver": {
+    "front": "/chronicle/figures/legacy-dungeon-delver-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-dungeon-delver-painted-v2-back.webp"
+  },
+  "legacy-ashen-hearth": {
+    "front": "/chronicle/figures/legacy-ashen-hearth-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-ashen-hearth-painted-v2-back.webp"
+  },
+  "legacy-embers-discipline": {
+    "front": "/chronicle/figures/legacy-embers-discipline-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-embers-discipline-painted-v2-back.webp"
+  },
+  "legacy-tidebreaker": {
+    "front": "/chronicle/figures/legacy-tidebreaker-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-tidebreaker-painted-v2-back.webp"
+  },
+  "legacy-thunder-raider": {
+    "front": "/chronicle/figures/legacy-thunder-raider-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-thunder-raider-painted-v2-back.webp"
+  },
+  "legacy-northern-fang": {
+    "front": "/chronicle/figures/legacy-northern-fang-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-northern-fang-painted-v2-back.webp"
+  },
+  "legacy-winter-sentinel": {
+    "front": "/chronicle/figures/legacy-winter-sentinel-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-winter-sentinel-painted-v2-back.webp"
+  },
+  "legacy-veiled-lantern": {
+    "front": "/chronicle/figures/legacy-veiled-lantern-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-veiled-lantern-painted-v2-back.webp"
+  },
+  "legacy-midnight-errand": {
+    "front": "/chronicle/figures/legacy-midnight-errand-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-midnight-errand-painted-v2-back.webp"
+  },
+  "legacy-hidden-path": {
+    "front": "/chronicle/figures/legacy-hidden-path-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-hidden-path-painted-v2-back.webp"
+  },
+  "legacy-wayfarers-mark": {
+    "front": "/chronicle/figures/legacy-wayfarers-mark-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-wayfarers-mark-painted-v2-back.webp"
+  },
+  "legacy-rumor-chaser": {
+    "front": "/chronicle/figures/legacy-rumor-chaser-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-rumor-chaser-painted-v2-back.webp"
+  },
+  "legacy-strangers-friend": {
+    "front": "/chronicle/figures/legacy-strangers-friend-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-strangers-friend-painted-v2-back.webp"
+  },
+  "legacy-shielding-palm": {
+    "front": "/chronicle/figures/legacy-shielding-palm-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-shielding-palm-painted-v2-back.webp"
+  },
+  "legacy-field-medic": {
+    "front": "/chronicle/figures/legacy-field-medic-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-field-medic-painted-v2-back.webp"
+  },
+  "legacy-purifying-light": {
+    "front": "/chronicle/figures/legacy-purifying-light-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-purifying-light-painted-v2-back.webp"
+  },
+  "legacy-pack-leader": {
+    "front": "/chronicle/figures/legacy-pack-leader-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-pack-leader-painted-v2-back.webp"
+  },
+  "legacy-wild-heart": {
+    "front": "/chronicle/figures/legacy-wild-heart-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-wild-heart-painted-v2-back.webp"
+  },
+  "legacy-coliseum-tamer": {
+    "front": "/chronicle/figures/legacy-coliseum-tamer-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-coliseum-tamer-painted-v2-back.webp"
+  },
+  "legacy-card-sharp": {
+    "front": "/chronicle/figures/legacy-card-sharp-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-card-sharp-painted-v2-back.webp"
+  },
+  "legacy-tables-shadow": {
+    "front": "/chronicle/figures/legacy-tables-shadow-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-tables-shadow-painted-v2-back.webp"
+  },
+  "legacy-sector-warden": {
+    "front": "/chronicle/figures/legacy-sector-warden-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-sector-warden-painted-v2-back.webp"
+  },
+  "legacy-banner-taker": {
+    "front": "/chronicle/figures/legacy-banner-taker-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-banner-taker-painted-v2-back.webp"
+  },
+  "legacy-siege-runner": {
+    "front": "/chronicle/figures/legacy-siege-runner-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-siege-runner-painted-v2-back.webp"
+  },
+  "legacy-war-drummer": {
+    "front": "/chronicle/figures/legacy-war-drummer-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-war-drummer-painted-v2-back.webp"
+  },
+  "legacy-wandering-shinobi": {
+    "front": "/chronicle/figures/legacy-wandering-shinobi-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-wandering-shinobi-painted-v2-back.webp"
+  },
+  "legacy-village-veteran": {
+    "front": "/chronicle/figures/legacy-village-veteran-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-village-veteran-painted-v2-back.webp"
+  },
+  "legacy-proven-fighter": {
+    "front": "/chronicle/figures/legacy-proven-fighter-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-proven-fighter-painted-v2-back.webp"
+  },
+  "legacy-road-worn-shinobi": {
+    "front": "/chronicle/figures/legacy-road-worn-shinobi-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-road-worn-shinobi-painted-v2-back.webp"
+  },
+  "legacy-ember-student": {
+    "front": "/chronicle/figures/legacy-ember-student-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-ember-student-painted-v2-back.webp"
+  },
+  "legacy-quiet-mind": {
+    "front": "/chronicle/figures/legacy-quiet-mind-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-quiet-mind-painted-v2-back.webp"
+  },
+  "legacy-calloused-fist": {
+    "front": "/chronicle/figures/legacy-calloused-fist-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-calloused-fist-painted-v2-back.webp"
+  },
+  "legacy-steel-apprentice": {
+    "front": "/chronicle/figures/legacy-steel-apprentice-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-steel-apprentice-painted-v2-back.webp"
+  },
+  "legacy-field-hand": {
+    "front": "/chronicle/figures/legacy-field-hand-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-field-hand-painted-v2-back.webp"
+  },
+  "legacy-beast-friend": {
+    "front": "/chronicle/figures/legacy-beast-friend-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-beast-friend-painted-v2-back.webp"
+  },
+  "legacy-table-regular": {
+    "front": "/chronicle/figures/legacy-table-regular-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-table-regular-painted-v2-back.webp"
+  },
+  "legacy-lantern-bearer": {
+    "front": "/chronicle/figures/legacy-lantern-bearer-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-lantern-bearer-painted-v2-back.webp"
+  },
+  "legacy-first-steps": {
+    "front": "/chronicle/figures/legacy-first-steps-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-first-steps-painted-v2-back.webp"
+  },
+  "legacy-honest-ryo": {
+    "front": "/chronicle/figures/legacy-honest-ryo-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-honest-ryo-painted-v2-back.webp"
+  },
+  "legacy-steadfast-neighbor": {
+    "front": "/chronicle/figures/legacy-steadfast-neighbor-painted-v2.webp",
+    "back": "/chronicle/figures/legacy-steadfast-neighbor-painted-v2-back.webp"
+  },
+  "story-story-ai-stormveil-village-4": {
+    "front": "/chronicle/figures/story-story-ai-stormveil-village-4-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-stormveil-village-4-painted-v2-back.webp"
+  },
+  "story-story-ai-stormveil-village-15": {
+    "front": "/chronicle/figures/story-story-ai-stormveil-village-15-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-stormveil-village-15-painted-v2-back.webp"
+  },
+  "story-story-ai-stormveil-village-25": {
+    "front": "/chronicle/figures/story-story-ai-stormveil-village-25-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-stormveil-village-25-painted-v2-back.webp"
+  },
+  "story-story-ai-stormveil-village-35": {
+    "front": "/chronicle/figures/story-story-ai-stormveil-village-35-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-stormveil-village-35-painted-v2-back.webp"
+  },
+  "story-story-ai-stormveil-village-50": {
+    "front": "/chronicle/figures/story-story-ai-stormveil-village-50-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-stormveil-village-50-painted-v2-back.webp"
+  },
+  "story-story-ai-stormveil-village-65": {
+    "front": "/chronicle/figures/story-story-ai-stormveil-village-65-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-stormveil-village-65-painted-v2-back.webp"
+  },
+  "story-story-ai-stormveil-village-75": {
+    "front": "/chronicle/figures/story-story-ai-stormveil-village-75-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-stormveil-village-75-painted-v2-back.webp"
+  },
+  "story-story-ai-stormveil-village-85": {
+    "front": "/chronicle/figures/story-story-ai-stormveil-village-85-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-stormveil-village-85-painted-v2-back.webp"
+  },
+  "story-story-ai-stormveil-village-100": {
+    "front": "/chronicle/figures/story-story-ai-stormveil-village-100-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-stormveil-village-100-painted-v2-back.webp"
+  },
+  "story-story-ai-ashen-leaf-village-4": {
+    "front": "/chronicle/figures/story-story-ai-ashen-leaf-village-4-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-ashen-leaf-village-4-painted-v2-back.webp"
+  },
+  "story-story-ai-ashen-leaf-village-15": {
+    "front": "/chronicle/figures/story-story-ai-ashen-leaf-village-15-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-ashen-leaf-village-15-painted-v2-back.webp"
+  },
+  "story-story-ai-ashen-leaf-village-25": {
+    "front": "/chronicle/figures/story-story-ai-ashen-leaf-village-25-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-ashen-leaf-village-25-painted-v2-back.webp"
+  },
+  "story-story-ai-ashen-leaf-village-35": {
+    "front": "/chronicle/figures/story-story-ai-ashen-leaf-village-35-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-ashen-leaf-village-35-painted-v2-back.webp"
+  },
+  "story-story-ai-ashen-leaf-village-50": {
+    "front": "/chronicle/figures/story-story-ai-ashen-leaf-village-50-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-ashen-leaf-village-50-painted-v2-back.webp"
+  },
+  "story-story-ai-ashen-leaf-village-65": {
+    "front": "/chronicle/figures/story-story-ai-ashen-leaf-village-65-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-ashen-leaf-village-65-painted-v2-back.webp"
+  },
+  "story-story-ai-ashen-leaf-village-75": {
+    "front": "/chronicle/figures/story-story-ai-ashen-leaf-village-75-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-ashen-leaf-village-75-painted-v2-back.webp"
+  },
+  "story-story-ai-ashen-leaf-village-85": {
+    "front": "/chronicle/figures/story-story-ai-ashen-leaf-village-85-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-ashen-leaf-village-85-painted-v2-back.webp"
+  },
+  "story-story-ai-ashen-leaf-village-100": {
+    "front": "/chronicle/figures/story-story-ai-ashen-leaf-village-100-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-ashen-leaf-village-100-painted-v2-back.webp"
+  },
+  "story-story-ai-frostfang-village-4": {
+    "front": "/chronicle/figures/story-story-ai-frostfang-village-4-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-frostfang-village-4-painted-v2-back.webp"
+  },
+  "story-story-ai-frostfang-village-15": {
+    "front": "/chronicle/figures/story-story-ai-frostfang-village-15-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-frostfang-village-15-painted-v2-back.webp"
+  },
+  "story-story-ai-frostfang-village-25": {
+    "front": "/chronicle/figures/story-story-ai-frostfang-village-25-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-frostfang-village-25-painted-v2-back.webp"
+  },
+  "story-story-ai-frostfang-village-35": {
+    "front": "/chronicle/figures/story-story-ai-frostfang-village-35-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-frostfang-village-35-painted-v2-back.webp"
+  },
+  "story-story-ai-frostfang-village-50": {
+    "front": "/chronicle/figures/story-story-ai-frostfang-village-50-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-frostfang-village-50-painted-v2-back.webp"
+  },
+  "story-story-ai-frostfang-village-65": {
+    "front": "/chronicle/figures/story-story-ai-frostfang-village-65-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-frostfang-village-65-painted-v2-back.webp"
+  },
+  "story-story-ai-frostfang-village-75": {
+    "front": "/chronicle/figures/story-story-ai-frostfang-village-75-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-frostfang-village-75-painted-v2-back.webp"
+  },
+  "story-story-ai-frostfang-village-85": {
+    "front": "/chronicle/figures/story-story-ai-frostfang-village-85-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-frostfang-village-85-painted-v2-back.webp"
+  },
+  "story-story-ai-frostfang-village-100": {
+    "front": "/chronicle/figures/story-story-ai-frostfang-village-100-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-frostfang-village-100-painted-v2-back.webp"
+  },
+  "story-story-ai-moonshadow-village-4": {
+    "front": "/chronicle/figures/story-story-ai-moonshadow-village-4-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-moonshadow-village-4-painted-v2-back.webp"
+  },
+  "story-story-ai-moonshadow-village-15": {
+    "front": "/chronicle/figures/story-story-ai-moonshadow-village-15-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-moonshadow-village-15-painted-v2-back.webp"
+  },
+  "story-story-ai-moonshadow-village-25": {
+    "front": "/chronicle/figures/story-story-ai-moonshadow-village-25-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-moonshadow-village-25-painted-v2-back.webp"
+  },
+  "story-story-ai-moonshadow-village-35": {
+    "front": "/chronicle/figures/story-story-ai-moonshadow-village-35-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-moonshadow-village-35-painted-v2-back.webp"
+  },
+  "story-story-ai-moonshadow-village-50": {
+    "front": "/chronicle/figures/story-story-ai-moonshadow-village-50-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-moonshadow-village-50-painted-v2-back.webp"
+  },
+  "story-story-ai-moonshadow-village-65": {
+    "front": "/chronicle/figures/story-story-ai-moonshadow-village-65-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-moonshadow-village-65-painted-v2-back.webp"
+  },
+  "story-story-ai-moonshadow-village-75": {
+    "front": "/chronicle/figures/story-story-ai-moonshadow-village-75-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-moonshadow-village-75-painted-v2-back.webp"
+  },
+  "story-story-ai-moonshadow-village-85": {
+    "front": "/chronicle/figures/story-story-ai-moonshadow-village-85-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-moonshadow-village-85-painted-v2-back.webp"
+  },
+  "story-story-ai-moonshadow-village-100": {
+    "front": "/chronicle/figures/story-story-ai-moonshadow-village-100-painted-v2.webp",
+    "back": "/chronicle/figures/story-story-ai-moonshadow-village-100-painted-v2-back.webp"
+  },
+  "pet-witness-fire": {
+    "front": "/chronicle/figures/pet-witness-fire-painted-v2.webp",
+    "back": "/chronicle/figures/pet-witness-fire-painted-v2-back.webp"
+  },
+  "pet-witness-water": {
+    "front": "/chronicle/figures/pet-witness-water-painted-v2.webp",
+    "back": "/chronicle/figures/pet-witness-water-painted-v2-back.webp"
+  },
+  "pet-witness-wind": {
+    "front": "/chronicle/figures/pet-witness-wind-painted-v2.webp",
+    "back": "/chronicle/figures/pet-witness-wind-painted-v2-back.webp"
+  },
+  "pet-witness-lightning": {
+    "front": "/chronicle/figures/pet-witness-lightning-painted-v2.webp",
+    "back": "/chronicle/figures/pet-witness-lightning-painted-v2-back.webp"
+  },
+  "pet-witness-earth": {
+    "front": "/chronicle/figures/pet-witness-earth-painted-v2.webp",
+    "back": "/chronicle/figures/pet-witness-earth-painted-v2-back.webp"
+  },
   "chronicle-coalwhisker-cub": {
     "front": "/chronicle/figures/chronicle-coalwhisker-cub-painted-v2.webp",
     "back": "/chronicle/figures/chronicle-coalwhisker-cub-painted-v2-back.webp"
@@ -1158,5 +1833,437 @@ export const CHRONICLE_PAINTED_FIGURES: Readonly<Record<string, { front: string;
   "chronicle-thunderpad-marten": {
     "front": "/chronicle/figures/chronicle-thunderpad-marten-painted-v2.webp",
     "back": "/chronicle/figures/chronicle-thunderpad-marten-painted-v2-back.webp"
+  },
+  "chronicle-crimson-weaver": {
+    "front": "/chronicle/figures/chronicle-crimson-weaver-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-crimson-weaver-painted-v2-back.webp"
+  },
+  "chronicle-spice-mill-loper": {
+    "front": "/chronicle/figures/chronicle-spice-mill-loper-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-spice-mill-loper-painted-v2-back.webp"
+  },
+  "chronicle-saffron-hoopoe": {
+    "front": "/chronicle/figures/chronicle-saffron-hoopoe-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-saffron-hoopoe-painted-v2-back.webp"
+  },
+  "chronicle-coalshoe-tapir": {
+    "front": "/chronicle/figures/chronicle-coalshoe-tapir-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-coalshoe-tapir-painted-v2-back.webp"
+  },
+  "chronicle-clinker-pika": {
+    "front": "/chronicle/figures/chronicle-clinker-pika-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-clinker-pika-painted-v2-back.webp"
+  },
+  "chronicle-firethorn-silkmaker": {
+    "front": "/chronicle/figures/chronicle-firethorn-silkmaker-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-firethorn-silkmaker-painted-v2-back.webp"
+  },
+  "chronicle-ember-binturong": {
+    "front": "/chronicle/figures/chronicle-ember-binturong-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-ember-binturong-painted-v2-back.webp"
+  },
+  "chronicle-fluebrush-jester": {
+    "front": "/chronicle/figures/chronicle-fluebrush-jester-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-fluebrush-jester-painted-v2-back.webp"
+  },
+  "chronicle-persimmon-glazer": {
+    "front": "/chronicle/figures/chronicle-persimmon-glazer-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-persimmon-glazer-painted-v2-back.webp"
+  },
+  "chronicle-redbellows-lung": {
+    "front": "/chronicle/figures/chronicle-redbellows-lung-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-redbellows-lung-painted-v2-back.webp"
+  },
+  "chronicle-ashpit-hoatzin": {
+    "front": "/chronicle/figures/chronicle-ashpit-hoatzin-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-ashpit-hoatzin-painted-v2-back.webp"
+  },
+  "chronicle-candleberry-bushling": {
+    "front": "/chronicle/figures/chronicle-candleberry-bushling-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-candleberry-bushling-painted-v2-back.webp"
+  },
+  "chronicle-brasspot-jerboa": {
+    "front": "/chronicle/figures/chronicle-brasspot-jerboa-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-brasspot-jerboa-painted-v2-back.webp"
+  },
+  "chronicle-blister-comb": {
+    "front": "/chronicle/figures/chronicle-blister-comb-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-blister-comb-painted-v2-back.webp"
+  },
+  "chronicle-copper-ladle-auntie": {
+    "front": "/chronicle/figures/chronicle-copper-ladle-auntie-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-copper-ladle-auntie-painted-v2-back.webp"
+  },
+  "chronicle-hearth-loaf": {
+    "front": "/chronicle/figures/chronicle-hearth-loaf-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-hearth-loaf-painted-v2-back.webp"
+  },
+  "chronicle-scoria-hyrax": {
+    "front": "/chronicle/figures/chronicle-scoria-hyrax-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-scoria-hyrax-painted-v2-back.webp"
+  },
+  "chronicle-bellowsnose-peccary": {
+    "front": "/chronicle/figures/chronicle-bellowsnose-peccary-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-bellowsnose-peccary-painted-v2-back.webp"
+  },
+  "chronicle-cochineal-brooch": {
+    "front": "/chronicle/figures/chronicle-cochineal-brooch-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-cochineal-brooch-painted-v2-back.webp"
+  },
+  "chronicle-firebrick-caracal": {
+    "front": "/chronicle/figures/chronicle-firebrick-caracal-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-firebrick-caracal-painted-v2-back.webp"
+  },
+  "chronicle-kiln-door-keeper": {
+    "front": "/chronicle/figures/chronicle-kiln-door-keeper-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-kiln-door-keeper-painted-v2-back.webp"
+  },
+  "chronicle-ripple-nautilus": {
+    "front": "/chronicle/figures/chronicle-ripple-nautilus-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-ripple-nautilus-painted-v2-back.webp"
+  },
+  "chronicle-reedbed-bittern": {
+    "front": "/chronicle/figures/chronicle-reedbed-bittern-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-reedbed-bittern-painted-v2-back.webp"
+  },
+  "chronicle-washbasin-skipper": {
+    "front": "/chronicle/figures/chronicle-washbasin-skipper-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-washbasin-skipper-painted-v2-back.webp"
+  },
+  "chronicle-dewspout-tap": {
+    "front": "/chronicle/figures/chronicle-dewspout-tap-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-dewspout-tap-painted-v2-back.webp"
+  },
+  "chronicle-brackish-mudskipper": {
+    "front": "/chronicle/figures/chronicle-brackish-mudskipper-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-brackish-mudskipper-painted-v2-back.webp"
+  },
+  "chronicle-pearl-diver-nami": {
+    "front": "/chronicle/figures/chronicle-pearl-diver-nami-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-pearl-diver-nami-painted-v2-back.webp"
+  },
+  "chronicle-silkfin-nudibranch": {
+    "front": "/chronicle/figures/chronicle-silkfin-nudibranch-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-silkfin-nudibranch-painted-v2-back.webp"
+  },
+  "chronicle-tea-gourd-drifter": {
+    "front": "/chronicle/figures/chronicle-tea-gourd-drifter-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-tea-gourd-drifter-painted-v2-back.webp"
+  },
+  "chronicle-waterwheel-peddler": {
+    "front": "/chronicle/figures/chronicle-waterwheel-peddler-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-waterwheel-peddler-painted-v2-back.webp"
+  },
+  "chronicle-limpet-bell": {
+    "front": "/chronicle/figures/chronicle-limpet-bell-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-limpet-bell-painted-v2-back.webp"
+  },
+  "chronicle-dockside-cormorant": {
+    "front": "/chronicle/figures/chronicle-dockside-cormorant-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-dockside-cormorant-painted-v2-back.webp"
+  },
+  "chronicle-cress-sprig": {
+    "front": "/chronicle/figures/chronicle-cress-sprig-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-cress-sprig-painted-v2-back.webp"
+  },
+  "chronicle-bluecup-anemone": {
+    "front": "/chronicle/figures/chronicle-bluecup-anemone-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-bluecup-anemone-painted-v2-back.webp"
+  },
+  "chronicle-millrace-desman": {
+    "front": "/chronicle/figures/chronicle-millrace-desman-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-millrace-desman-painted-v2-back.webp"
+  },
+  "chronicle-rill-dipper": {
+    "front": "/chronicle/figures/chronicle-rill-dipper-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-rill-dipper-painted-v2-back.webp"
+  },
+  "chronicle-pond-siphon": {
+    "front": "/chronicle/figures/chronicle-pond-siphon-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-pond-siphon-painted-v2-back.webp"
+  },
+  "chronicle-harbor-sea-pen": {
+    "front": "/chronicle/figures/chronicle-harbor-sea-pen-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-harbor-sea-pen-painted-v2-back.webp"
+  },
+  "chronicle-rain-chain-tender": {
+    "front": "/chronicle/figures/chronicle-rain-chain-tender-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-rain-chain-tender-painted-v2-back.webp"
+  },
+  "chronicle-tidepool-cuttlefish": {
+    "front": "/chronicle/figures/chronicle-tidepool-cuttlefish-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-tidepool-cuttlefish-painted-v2-back.webp"
+  },
+  "chronicle-sluice-cassowary": {
+    "front": "/chronicle/figures/chronicle-sluice-cassowary-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-sluice-cassowary-painted-v2-back.webp"
+  },
+  "chronicle-burdock-burrling": {
+    "front": "/chronicle/figures/chronicle-burdock-burrling-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-burdock-burrling-painted-v2-back.webp"
+  },
+  "chronicle-claystamp-scribe": {
+    "front": "/chronicle/figures/chronicle-claystamp-scribe-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-claystamp-scribe-painted-v2-back.webp"
+  },
+  "chronicle-kerneltip-tenrec": {
+    "front": "/chronicle/figures/chronicle-kerneltip-tenrec-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-kerneltip-tenrec-painted-v2-back.webp"
+  },
+  "chronicle-granite-wombat": {
+    "front": "/chronicle/figures/chronicle-granite-wombat-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-granite-wombat-painted-v2-back.webp"
+  },
+  "chronicle-tuber-mandrake": {
+    "front": "/chronicle/figures/chronicle-tuber-mandrake-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-tuber-mandrake-painted-v2-back.webp"
+  },
+  "chronicle-thimble-cobbler": {
+    "front": "/chronicle/figures/chronicle-thimble-cobbler-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-thimble-cobbler-painted-v2-back.webp"
+  },
+  "chronicle-sandglass-sowbug": {
+    "front": "/chronicle/figures/chronicle-sandglass-sowbug-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-sandglass-sowbug-painted-v2-back.webp"
+  },
+  "chronicle-stubble-bustard": {
+    "front": "/chronicle/figures/chronicle-stubble-bustard-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-stubble-bustard-painted-v2-back.webp"
+  },
+  "chronicle-terrace-cassava": {
+    "front": "/chronicle/figures/chronicle-terrace-cassava-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-terrace-cassava-painted-v2-back.webp"
+  },
+  "chronicle-gravel-sifter": {
+    "front": "/chronicle/figures/chronicle-gravel-sifter-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-gravel-sifter-painted-v2-back.webp"
+  },
+  "chronicle-ridge-dikdik": {
+    "front": "/chronicle/figures/chronicle-ridge-dikdik-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-ridge-dikdik-painted-v2-back.webp"
+  },
+  "chronicle-clay-ocarina": {
+    "front": "/chronicle/figures/chronicle-clay-ocarina-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-clay-ocarina-painted-v2-back.webp"
+  },
+  "chronicle-earthstar-puffball": {
+    "front": "/chronicle/figures/chronicle-earthstar-puffball-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-earthstar-puffball-painted-v2-back.webp"
+  },
+  "chronicle-barley-thresher": {
+    "front": "/chronicle/figures/chronicle-barley-thresher-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-barley-thresher-painted-v2-back.webp"
+  },
+  "chronicle-ochre-aardvark": {
+    "front": "/chronicle/figures/chronicle-ochre-aardvark-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-ochre-aardvark-painted-v2-back.webp"
+  },
+  "chronicle-nutmeg-mortar": {
+    "front": "/chronicle/figures/chronicle-nutmeg-mortar-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-nutmeg-mortar-painted-v2-back.webp"
+  },
+  "chronicle-quartz-agouti": {
+    "front": "/chronicle/figures/chronicle-quartz-agouti-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-quartz-agouti-painted-v2-back.webp"
+  },
+  "chronicle-terrace-tamandua": {
+    "front": "/chronicle/figures/chronicle-terrace-tamandua-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-terrace-tamandua-painted-v2-back.webp"
+  },
+  "chronicle-tile-setter-jun": {
+    "front": "/chronicle/figures/chronicle-tile-setter-jun-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-tile-setter-jun-painted-v2-back.webp"
+  },
+  "chronicle-granary-menhir": {
+    "front": "/chronicle/figures/chronicle-granary-menhir-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-granary-menhir-painted-v2-back.webp"
+  },
+  "chronicle-maple-samara": {
+    "front": "/chronicle/figures/chronicle-maple-samara-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-maple-samara-painted-v2-back.webp"
+  },
+  "chronicle-pennant-mender": {
+    "front": "/chronicle/figures/chronicle-pennant-mender-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-pennant-mender-painted-v2-back.webp"
+  },
+  "chronicle-cloudruff-alpaca": {
+    "front": "/chronicle/figures/chronicle-cloudruff-alpaca-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-cloudruff-alpaca-painted-v2-back.webp"
+  },
+  "chronicle-bamboo-whistler": {
+    "front": "/chronicle/figures/chronicle-bamboo-whistler-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-bamboo-whistler-painted-v2-back.webp"
+  },
+  "chronicle-sailcloth-tern": {
+    "front": "/chronicle/figures/chronicle-sailcloth-tern-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-sailcloth-tern-painted-v2-back.webp"
+  },
+  "chronicle-spindle-winder": {
+    "front": "/chronicle/figures/chronicle-spindle-winder-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-spindle-winder-painted-v2-back.webp"
+  },
+  "chronicle-windup-anemometer": {
+    "front": "/chronicle/figures/chronicle-windup-anemometer-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-windup-anemometer-painted-v2-back.webp"
+  },
+  "chronicle-eave-swiftlet": {
+    "front": "/chronicle/figures/chronicle-eave-swiftlet-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-eave-swiftlet-painted-v2-back.webp"
+  },
+  "chronicle-pollen-parasol": {
+    "front": "/chronicle/figures/chronicle-pollen-parasol-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-pollen-parasol-painted-v2-back.webp"
+  },
+  "chronicle-ribbon-frigatebird": {
+    "front": "/chronicle/figures/chronicle-ribbon-frigatebird-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-ribbon-frigatebird-painted-v2-back.webp"
+  },
+  "chronicle-chaff-winnower": {
+    "front": "/chronicle/figures/chronicle-chaff-winnower-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-chaff-winnower-painted-v2-back.webp"
+  },
+  "chronicle-foldstep-doll": {
+    "front": "/chronicle/figures/chronicle-foldstep-doll-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-foldstep-doll-painted-v2-back.webp"
+  },
+  "chronicle-drift-kapok": {
+    "front": "/chronicle/figures/chronicle-drift-kapok-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-drift-kapok-painted-v2-back.webp"
+  },
+  "chronicle-crested-seriema": {
+    "front": "/chronicle/figures/chronicle-crested-seriema-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-crested-seriema-painted-v2-back.webp"
+  },
+  "chronicle-airfoil-colugo": {
+    "front": "/chronicle/figures/chronicle-airfoil-colugo-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-airfoil-colugo-painted-v2-back.webp"
+  },
+  "chronicle-reed-organ-piper": {
+    "front": "/chronicle/figures/chronicle-reed-organ-piper-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-reed-organ-piper-painted-v2-back.webp"
+  },
+  "chronicle-saltwind-albatross": {
+    "front": "/chronicle/figures/chronicle-saltwind-albatross-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-saltwind-albatross-painted-v2-back.webp"
+  },
+  "chronicle-bunting-reel": {
+    "front": "/chronicle/figures/chronicle-bunting-reel-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-bunting-reel-painted-v2-back.webp"
+  },
+  "chronicle-gable-weathervane": {
+    "front": "/chronicle/figures/chronicle-gable-weathervane-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-gable-weathervane-painted-v2-back.webp"
+  },
+  "chronicle-windbreak-yak": {
+    "front": "/chronicle/figures/chronicle-windbreak-yak-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-windbreak-yak-painted-v2-back.webp"
+  },
+  "chronicle-amber-tuning-fork": {
+    "front": "/chronicle/figures/chronicle-amber-tuning-fork-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-amber-tuning-fork-painted-v2-back.webp"
+  },
+  "chronicle-buzzwing-cicada": {
+    "front": "/chronicle/figures/chronicle-buzzwing-cicada-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-buzzwing-cicada-painted-v2-back.webp"
+  },
+  "chronicle-glowcap-chanterelle": {
+    "front": "/chronicle/figures/chronicle-glowcap-chanterelle-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-glowcap-chanterelle-painted-v2-back.webp"
+  },
+  "chronicle-coil-patcher": {
+    "front": "/chronicle/figures/chronicle-coil-patcher-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-coil-patcher-painted-v2-back.webp"
+  },
+  "chronicle-glass-fuse-sprite": {
+    "front": "/chronicle/figures/chronicle-glass-fuse-sprite-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-glass-fuse-sprite-painted-v2-back.webp"
+  },
+  "chronicle-clickjaw-tarsier": {
+    "front": "/chronicle/figures/chronicle-clickjaw-tarsier-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-clickjaw-tarsier-painted-v2-back.webp"
+  },
+  "chronicle-storm-dial-reader": {
+    "front": "/chronicle/figures/chronicle-storm-dial-reader-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-storm-dial-reader-painted-v2-back.webp"
+  },
+  "chronicle-induction-bobbin": {
+    "front": "/chronicle/figures/chronicle-induction-bobbin-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-induction-bobbin-painted-v2-back.webp"
+  },
+  "chronicle-magnetite-kiwi": {
+    "front": "/chronicle/figures/chronicle-magnetite-kiwi-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-magnetite-kiwi-painted-v2-back.webp"
+  },
+  "chronicle-chime-hammer": {
+    "front": "/chronicle/figures/chronicle-chime-hammer-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-chime-hammer-painted-v2-back.webp"
+  },
+  "chronicle-blueflash-roller": {
+    "front": "/chronicle/figures/chronicle-blueflash-roller-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-blueflash-roller-painted-v2-back.webp"
+  },
+  "chronicle-pulse-jelly": {
+    "front": "/chronicle/figures/chronicle-pulse-jelly-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-pulse-jelly-painted-v2-back.webp"
+  },
+  "chronicle-tinplate-music-box": {
+    "front": "/chronicle/figures/chronicle-tinplate-music-box-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-tinplate-music-box-painted-v2-back.webp"
+  },
+  "chronicle-lodestone-numbat": {
+    "front": "/chronicle/figures/chronicle-lodestone-numbat-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-lodestone-numbat-painted-v2-back.webp"
+  },
+  "chronicle-rain-rod-fitter": {
+    "front": "/chronicle/figures/chronicle-rain-rod-fitter-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-rain-rod-fitter-painted-v2-back.webp"
+  },
+  "chronicle-stormglass-prism": {
+    "front": "/chronicle/figures/chronicle-stormglass-prism-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-stormglass-prism-painted-v2-back.webp"
+  },
+  "chronicle-voltstripe-zorilla": {
+    "front": "/chronicle/figures/chronicle-voltstripe-zorilla-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-voltstripe-zorilla-painted-v2-back.webp"
+  },
+  "chronicle-sundial-springer": {
+    "front": "/chronicle/figures/chronicle-sundial-springer-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-sundial-springer-painted-v2-back.webp"
+  },
+  "chronicle-switchboard-kudu": {
+    "front": "/chronicle/figures/chronicle-switchboard-kudu-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-switchboard-kudu-painted-v2-back.webp"
+  },
+  "chronicle-groundplate-bell": {
+    "front": "/chronicle/figures/chronicle-groundplate-bell-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-groundplate-bell-painted-v2-back.webp"
+  },
+  "story-wandering-sage": {
+    "front": "/chronicle/figures/story-wandering-sage-painted-v2.webp",
+    "back": "/chronicle/figures/story-wandering-sage-painted-v2-back.webp"
+  },
+  "summon-cinderhorn-qilin": {
+    "front": "/chronicle/figures/summon-cinderhorn-qilin-painted-v2.webp",
+    "back": "/chronicle/figures/summon-cinderhorn-qilin-painted-v2-back.webp"
+  },
+  "summon-rimetide-leviathan": {
+    "front": "/chronicle/figures/summon-rimetide-leviathan-painted-v2.webp",
+    "back": "/chronicle/figures/summon-rimetide-leviathan-painted-v2-back.webp"
+  },
+  "summon-ironroot-tortoise": {
+    "front": "/chronicle/figures/summon-ironroot-tortoise-painted-v2.webp",
+    "back": "/chronicle/figures/summon-ironroot-tortoise-painted-v2-back.webp"
+  },
+  "summon-galewing-tengu": {
+    "front": "/chronicle/figures/summon-galewing-tengu-painted-v2.webp",
+    "back": "/chronicle/figures/summon-galewing-tengu-painted-v2-back.webp"
+  },
+  "summon-stormcrown-raiju": {
+    "front": "/chronicle/figures/summon-stormcrown-raiju-painted-v2.webp",
+    "back": "/chronicle/figures/summon-stormcrown-raiju-painted-v2-back.webp"
+  },
+  "chronicle-shadow-double": {
+    "front": "/chronicle/figures/chronicle-shadow-double-painted-v2.webp",
+    "back": "/chronicle/figures/chronicle-shadow-double-painted-v2-back.webp"
   }
 });

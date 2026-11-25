@@ -8,7 +8,6 @@ const crypto = require('node:crypto');
 const sharp = require('sharp');
 const artBriefs = require('./chronicle-art-briefs.json');
 const { CHRONICLE_CARD_CATALOG, CHRONICLE_TOKEN_CARDS, CHRONICLE_STARTER_CORE_IDS } = require('../shared/chronicle-duel.ts');
-const { CHRONICLE_PAINTED_FIGURES } = require('../shared/chronicle-painted-art.ts');
 const root = path.resolve(__dirname, '..');
 const productionDir = path.join(root, 'shinobij.client/art-source/chronicle-refresh');
 const publicDir = path.join(root, 'shinobij.client/public');
@@ -38,18 +37,18 @@ function prompt(card) {
 async function inventory() {
   fs.mkdirSync(productionDir, { recursive: true });
   const previous = fs.existsSync(manifestFile) ? readManifest() : { cards: [] };
-  const data = { version: 2, provider: 'built-in image_gen', style, target: 'Replace every catalog card and token with a distinct, consistent illustration; matching front/back figures for cards that already have figures; legendary/mythic holographic presentation.', pilotNames, cards: cards.map(card => {
+  const data = { version: 2, provider: 'built-in image_gen', style, target: 'Distinct illustrations for every catalog card and token. Matching front and back duel figures for every monster, including tokens. Holographic presentation for legendary and mythic cards.', pilotNames, cards: cards.map(card => {
     const old = previous.cards.find(row => row.id === card.id);
     return { id: card.id, name: card.name, rarity: card.rarity, element: card.element ?? null, cardClass: card.cardClass, originalPath: old?.originalPath ?? card.image ?? null,
       runtimePath: `/chronicle/cards/${card.id}-painted-v2.webp`, smallPath: `/chronicle/cards/${card.id}-painted-v2-512.webp`,
       masterPath: `shinobij.client/art-source/chronicle-refresh/masters/${card.id}.png`,
-      needsFigures: Boolean(old?.needsFigures || CHRONICLE_PAINTED_FIGURES[card.id] || fs.existsSync(path.join(publicDir, 'chronicle/figures', `${card.id}.webp`))),
       figurePrompts: {
         front: `Use case: background-extraction. Asset type: transparent duel-board creature sprite. Isolate the main ${card.name} from the supplied NEW card illustration. Preserve its exact species, colors, materials, costume and painted finish. Show the single subject’s entire body including feet, tail, wings or antennae, viewed frontally, facing the viewer, centered with a clear silhouette and no clipped extremities. Reconstruct obscured parts consistently when needed. Remove ALL scenery, lettering, magic circles, floor and cast shadow. Genuine transparent background, not a checkerboard painting. No frame, text, icons, duplicate creature or unrelated human. The only subject is ${card.name}.`,
         back: `Use case: identity-preserve. Asset type: transparent duel-board back-view creature sprite. Paint the exact same ${card.name} from the supplied NEW front sprite, now seen directly FROM BEHIND facing away from the viewer. Preserve exact species, anatomy, colors, costume, materials, proportions and painted finish. Show the entire body including feet, tail and wings, centered, grounded at bottom, no clipped extremities. One character only, full genuine transparent background. No scenery, floor, cast shadow, lettering, frame, icons or duplicate creature. This is a matching back view, not another frontal portrait.`
       },
       pilot: pilotNames.includes(card.name), starter: CHRONICLE_STARTER_CORE_IDS.includes(card.id),
       status: 'queued', prompt: old?.prompt ?? prompt(card), ...old,
+      needsFigures: card.cardClass === 'monster',
       ...(old?.status !== 'packaged' && !old?.pilot && !old?.identityReference && !old?.pairedCreatureReference ? {
         prompt: prompt(card) + '\nInput image: visual STYLE reference only. Match the sophisticated brushwork, fine material texture and cinematic painted finish; create the named subject in its own distinct scene. Do not copy the reference character or composition.',
         styleReference: 'shinobij.client/art-source/chronicle-refresh/masters/story-wandering-sage.png'

@@ -64,8 +64,7 @@ async function stored() {
 }
 
 type Refund = { chroniclePoints: number; fateShards: number };
-/** Random draws can repeat a card past its playset (about 0.2% of elemental
- *  packs from an empty collection); such copies convert instead of landing. */
+/** Draws beyond an owned playset convert instead of joining the collection. */
 const keptCount = (...bodies: Json[]) => bodies.reduce((sum, body) =>
     sum + (body.cards as string[]).length - ((body.converted as unknown[] | undefined)?.length ?? 0), 0);
 const refundOf = (currency: string, ...bodies: Json[]) => bodies.reduce((sum, body) =>
@@ -86,18 +85,18 @@ test('pack telemetry counts the rarity of the card ID actually awarded', async (
 });
 
 for (const [packType, currency, cost, count] of [
-    ['standard', 'chroniclePoints', 100, 5],
-    ['fire', 'chroniclePoints', 100, 5],
-    ['water', 'chroniclePoints', 100, 5],
-    ['earth', 'chroniclePoints', 100, 5],
-    ['wind', 'chroniclePoints', 100, 5],
-    ['lightning', 'chroniclePoints', 100, 5],
-    ['snare', 'chroniclePoints', 100, 5],
-    ['jutsu', 'chroniclePoints', 100, 5],
+    ['standard', 'chroniclePoints', 100, 3],
+    ['fire', 'chroniclePoints', 100, 3],
+    ['water', 'chroniclePoints', 100, 3],
+    ['earth', 'chroniclePoints', 100, 3],
+    ['wind', 'chroniclePoints', 100, 3],
+    ['lightning', 'chroniclePoints', 100, 3],
+    ['snare', 'chroniclePoints', 100, 3],
+    ['jutsu', 'chroniclePoints', 100, 3],
     ['epic', 'fateShards', 6, 1],
     ['legendary', 'fateShards', 20, 1],
-    ['epic-five', 'fateShards', 35, 5],
-    ['legendary-five', 'fateShards', 100, 5],
+    ['epic-five', 'fateShards', 21, 3],
+    ['legendary-five', 'fateShards', 60, 3],
 ] as const) {
     test(`${packType}: lost committed response retries the original cards and spends once`, async () => {
         const initial = await stored();
@@ -266,6 +265,25 @@ test('a duplicate beyond the playset converts in the committed write and replays
     assert.deepEqual(replay.body.converted, opened.body.converted);
     assert.deepEqual(replay.body.refund, opened.body.refund);
     assert.deepEqual((await stored()).record, committed.record, 'a replay credits nothing a second time');
+});
+
+test('recovering a five-card premium receipt after resizing preserves its original price and draw', async () => {
+    const packType = 'epic-five';
+    const { record, character } = await stored();
+    const { appendSettlementReceipt } = await import('../_settlement-receipts.js');
+    const cards = ['chronicle-crimson-weaver', 'chronicle-crimson-weaver', 'chronicle-crimson-weaver', 'chronicle-guardians-reversal', 'chronicle-guardians-reversal'];
+    const paid = { ...character, tileCards: cards, fateShards: 65 };
+    const value = { kind: 'chronicle-card-pack', packType, cards, currency: 'fateShards', cost: 35, balance: 65 };
+    const seeded = { ...record, character: appendSettlementReceipt(paid, [], {
+        requestId: REQUEST_ID, fingerprint: `chronicle-card-pack:${packType}`, value, settledAt: Date.now(),
+    }) };
+    await kv.set(`save:${PLAYER}`, seeded);
+    const recovered = await post({ packType, requestId: REQUEST_ID });
+    assert.equal(recovered.status, 200);
+    assert.equal(recovered.body.replayed, true);
+    assert.deepEqual(recovered.body.cards, cards);
+    assert.equal(recovered.body.cost, 35);
+    assert.deepEqual((await stored()).record, seeded);
 });
 
 test('a receipt written before conversions shipped replays as no conversion; a forged one is refused', async () => {

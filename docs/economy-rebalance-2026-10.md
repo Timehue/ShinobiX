@@ -208,7 +208,7 @@ Two pet values in this pass were replaced by newer owner-merged designs on `main
 **Chronicle.** The Elite pack costs 6 FS and the single Legendary pack 20 FS. Duplicates
 beyond a playset convert to Chronicle Points or Fate Shards. The first Echoes win of the
 day pays +35 CP. Premium trade-focus discounts round to the nearest Fate Shard:
-Elite 6, Legendary 19, Epic Quintet 33, Legendary Quintet 95. Basic packs remain
+Elite 6, Legendary 19, Epic Trio 20 (21 before discount), Legendary Trio 57 (60 before discount). Basic packs remain
 100 Chronicle Points, without a discount. Server charges and gallery quotes match.
 
 Card battles outside Echoes also pay Chronicle Points (owner request, 2026-10-22), so the

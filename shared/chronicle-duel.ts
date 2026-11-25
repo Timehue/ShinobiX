@@ -8,6 +8,8 @@
 import { shinobiTileCards, type TileCard } from "./tile-cards.js";
 import { CHRONICLE_PAINTED_ART } from "./chronicle-painted-art.js";
 import { CHRONICLE_COMMON_EXPANSION } from "./chronicle-expansion-monsters.js";
+import { CHRONICLE_VILLAGE_MONSTERS } from "./chronicle-village-monsters.js";
+import { CHRONICLE_VILLAGE_SUPPORT } from "./chronicle-village-support.js";
 import {
   CHRONICLE_LEGACY_SOURCES,
   type ChronicleLegacySource,
@@ -152,6 +154,7 @@ export type MonsterPowerTier =
   "weak" | "standard" | "elite" | "boss" | "mythic";
 export type ChronicleMonsterType = "normal" | "effect";
 export type ChronicleMonsterEffectTrigger =
+  | "onAttackPositionSummon"
   | "onFlip"
   | "onNormalSummon"
   | "onBattleDamage"
@@ -162,6 +165,7 @@ export type ChronicleMonsterEffectTrigger =
   | "afterAttack"
   | "whileFaceUp";
 export type ChronicleMonsterEffectKind =
+  | "blockAttacksOnSummon"
   | "drawOnFlip"
   | "cycleHandsOnFlip"
   | "healOnFlip"
@@ -520,26 +524,6 @@ const RARITY_STAT_BONUS: Readonly<
   legendary: { attack: 450, defense: 400 },
   mythic: { attack: 600, defense: 500 },
 };
-
-/**
- * Why the ordering this creates is guaranteed rather than hoped for: within one
- * Level, the tier baseline is a constant and every ELEMENT_PROFILE row nets
- * exactly +100 across ATK+DEF (Fire +200/-100, Earth -100/+200, and so on), so
- * element only ever redistributes between the two stats. That leaves this table
- * as the sole term that changes a card's total, and its totals strictly climb
- * (0 < 250 < 550 < 850 < 1100, or 0 < 150 < 350 < 550 < 750 on a free-summon
- * body). Every card at one Level shares one tier, so the two scales never meet
- * at a Level. An Epic therefore outclasses every Rare at the same Level, at
- * every Level — which is the rule, not a coincidence of the current numbers.
- */
-const RARITY_STAT_TOTALS = Object.freeze(
-  Object.fromEntries(
-    Object.entries(RARITY_STAT_BONUS).map(([rarity, bonus]) => [
-      rarity,
-      bonus.attack + bonus.defense,
-    ]),
-  ),
-);
 
 /**
  * Balance pass 2026-10-14 (docs/chronicle-balance-pass-2026-10.md). Free-summon
@@ -939,6 +923,23 @@ function monsterFromPetWitness(source: ChroniclePetWitnessSource): ChronicleMons
     powerTier: "standard",
   };
 }
+
+const CRIMSON_WEAVER: ChronicleMonsterCard = {
+  id: "chronicle-crimson-weaver",
+  name: "Crimson Weaver",
+  lore: "This drider spins threads of banked fire across the shrine steps. Even a drawn blade must wait for the silk to cool.",
+  rarity: "epic",
+  element: "Fire",
+  cardClass: "monster",
+  monsterType: "effect",
+  family: "Drider",
+  level: 3,
+  attack: 1_200,
+  defense: 1_500,
+  powerTier: "standard",
+  effectText: "When Summoned in Attack Position, neither player can attack this turn or on your opponent's next turn.",
+  monsterEffect: { kind: "blockAttacksOnSummon", trigger: "onAttackPositionSummon" },
+};
 
 const WANDERING_SAGE_CARD: ChronicleMonsterCard = {
   id: "story-wandering-sage",
@@ -1931,7 +1932,7 @@ function trap(
   };
 }
 
-const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
+export const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
   magic(
     "chronicle-recon-scroll",
     "Reconnaissance Scroll",
@@ -3956,6 +3957,7 @@ const SUPPORT_CARDS: readonly (ChronicleMagicCard | ChronicleTrapCard)[] = [
       trigger: "onMagicActivated", duration: "instant", originatingActionContinues: false, order: 1 },
     { rarity: "epic", effectTier: "advanced", deckLimit: 2 },
   ),
+  ...CHRONICLE_VILLAGE_SUPPORT,
 ];
 
 export const CHRONICLE_SUPPORT_CARDS = Object.freeze(SUPPORT_CARDS.map(ensureChronicleArt));
@@ -4065,6 +4067,8 @@ export const CHRONICLE_CARD_CATALOG: readonly ChronicleCard[] = Object.freeze(
       ...STORY_MONSTER_CARDS,
       ...PET_WITNESS_MONSTER_CARDS,
       ...CHRONICLE_COMMON_EXPANSION,
+      CRIMSON_WEAVER,
+      ...CHRONICLE_VILLAGE_MONSTERS,
       applyReviewedMonsterEffect(WANDERING_SAGE_CARD),
     ]),
     ...CALLED_MONSTER_CARDS,
@@ -4435,6 +4439,8 @@ export interface ChronicleMatch {
   /** Independent of surviving Monsters and attack restrictions. Older matches
    * recover this count from their persisted attack-declared events. */
   attacksDeclaredThisTurn?: number;
+  /** Absolute last turn covered by Crimson Weaver's summon effect. */
+  attacksBlockedUntilTurn?: number;
   responseWindow: ChronicleResponseWindow | null;
   activeField: ChronicleActiveField | null;
   p1: ChronicleSide;
@@ -5480,6 +5486,16 @@ function maybeOpenResponse(
   return success(next);
 }
 
+function applyAttackPositionSummonEffect(state: ChronicleMatch, card: ChronicleMonsterCard): void {
+  if (card.monsterEffect?.kind !== "blockAttacksOnSummon") return;
+  state.attacksBlockedUntilTurn = state.turnNumber + 1;
+  state.log.push(`${card.name}'s web prevents attacks for the rest of this turn and the opponent's next turn.`);
+}
+
+export function chronicleAttacksBlocked(state: ChronicleMatch): boolean {
+  return state.attacksBlockedUntilTurn !== undefined && state.turnNumber <= state.attacksBlockedUntilTurn;
+}
+
 function resolveSummon(
   state: ChronicleMatch,
   actor: ChronicleSideKey,
@@ -5539,6 +5555,7 @@ function resolveSummon(
   next.log.push(
     `${side.name} ${setFaceDown ? "Sets a Monster" : `Summons ${card.name}`}${required ? ` using ${required} Tribute${required === 1 ? "" : "s"}` : ""}.`,
   );
+  if (!setFaceDown) applyAttackPositionSummonEffect(next, card);
   if (
     !setFaceDown &&
     required > 0 &&
@@ -5718,8 +5735,10 @@ export function flipSummon(
     `${sideOf(next, actor).name} Flip Summons ${getChronicleCard(target.cardId)?.name ?? "a Monster"}.`,
   );
   const card = getChronicleCard(target.cardId);
-  if (card?.cardClass === "monster")
+  if (card?.cardClass === "monster") {
     applyStandaloneFlipEffect(next, actor, card);
+    applyAttackPositionSummonEffect(next, card);
+  }
   return success(next);
 }
 
@@ -6147,6 +6166,7 @@ function applyMagicEffect(
       temporaryDefense: 0,
     };
     state.normalSummonUsed = true;
+    applyAttackPositionSummonEffect(state, called);
     state.log.push(
       `${side.name} pays ${effect.healthCost ?? 0} Health Points and Summons ${called.name} with ${card.name}.`,
     );
@@ -6625,6 +6645,7 @@ function validateAttack(
 ): string | null {
   const guard = actionGuard(state, actor, ["battle"]);
   if (guard) return guard;
+  if (chronicleAttacksBlocked(state)) return "Crimson Weaver's web prevents attacks this turn.";
   const attackerIndex = Number(intent.attackerZoneIndex);
   if (!validZone(attackerIndex, MONSTER_ZONE_COUNT))
     return "Choose a valid attacker.";
@@ -7522,6 +7543,7 @@ export interface ChronicleProjectedZone {
 }
 
 export interface ChronicleProjection {
+  attacksBlocked?: boolean;
   rulesVersion: number;
   turnNumber: number;
   firstPlayer: ChronicleSideKey;
@@ -7599,6 +7621,7 @@ export function previewChronicleBattle(
   const defenderSide: ChronicleSideKey = actor === "p1" ? "p2" : "p1";
   const attacker = state[actor].monsterZones[attackerZoneIndex];
   const defender = state[defenderSide].monsterZones[targetZoneIndex];
+  if (state.attacksBlocked) return { legal: false, kind: "illegal", label: "CRIMSON WEAVER · ATTACKS BLOCKED" };
   if (
     !attacker?.faceUp ||
     attacker.attack === undefined ||
@@ -7813,6 +7836,7 @@ export function projectMatchForViewer(
           ...(key === viewer
             ? {
                 canAttack:
+                  !chronicleAttacksBlocked(state) &&
                   monster.faceUp &&
                   monster.position === "attack" &&
                   monster.lastAttackTurn !== state.turnNumber,
@@ -7851,6 +7875,7 @@ export function projectMatchForViewer(
   };
   return {
     rulesVersion: state.rulesVersion,
+    ...(chronicleAttacksBlocked(state) ? { attacksBlocked: true } : {}),
     turnNumber: state.turnNumber,
     firstPlayer: state.firstPlayer,
     activePlayer: state.activePlayer,

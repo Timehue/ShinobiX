@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { CHRONICLE_PAINTED_ART } from "../../shared/chronicle-painted-art";
+import { CHRONICLE_VILLAGE_MONSTERS } from "../../shared/chronicle-village-monsters";
+import { CHRONICLE_VILLAGE_SUPPORT } from "../../shared/chronicle-village-support";
 import {
   CHRONICLE_CARD_CATALOG,
   CHRONICLE_FOUNDING_FORMAT,
@@ -453,7 +455,7 @@ test("deck validation enforces the number of physical copies owned", () => {
 });
 
 test("all cards carry art while Smoke Bomb is the locked Trap", () => {
-  assert.equal(CHRONICLE_CARD_CATALOG.length, 435);
+  assert.equal(CHRONICLE_CARD_CATALOG.length, 546);
   assert.equal(CHRONICLE_CARD_CATALOG.some((card) => card.id === SHADOW_DOUBLE_ID), false);
   for (const card of CHRONICLE_CARD_CATALOG) {
     assert.ok(
@@ -488,10 +490,10 @@ test("Effects are an Epic-and-up perk, with complete typed metadata", () => {
     (card) => card.monsterType === "effect",
   );
 
-  assert.equal(monsters.length, 327);
-  assert.equal(effectMonsters.length, 162);
-  assert.equal(CHRONICLE_EFFECT_MONSTER_IDS.length, 162);
-  assert.equal(new Set(CHRONICLE_EFFECT_MONSTER_IDS).size, 162);
+  assert.equal(monsters.length, 428);
+  assert.equal(effectMonsters.length, 178);
+  assert.equal(CHRONICLE_EFFECT_MONSTER_IDS.length, 178);
+  assert.equal(new Set(CHRONICLE_EFFECT_MONSTER_IDS).size, 178);
 
   // This replaces a flat "20-25% of all Monsters" band. Rarity no longer buys a
   // bigger Level, so what it buys instead is the effect: every Epic, Legendary
@@ -532,6 +534,7 @@ test("Effects are an Epic-and-up perk, with complete typed metadata", () => {
     [...new Set(effectMonsters.map((card) => card.monsterEffect?.kind))].sort(),
     [
       "alliedElementAttackBoost",
+      "blockAttacksOnSummon",
       "callSummonOnly",
       "changeStrongestOpponentPositionOnFlip",
       "changeToDefenseWhenAttacked",
@@ -582,11 +585,11 @@ test("the Monster pool uses exactly five nearly-even elements and no neutral Mon
   );
   // One called Monster per element (2026-10-14) keeps the spread even.
   assert.deepEqual(counts, {
-    Fire: 65,
-    Water: 65,
-    Earth: 65,
-    Wind: 65,
-    Lightning: 67,
+    Fire: 86,
+    Water: 85,
+    Earth: 85,
+    Wind: 85,
+    Lightning: 87,
   });
   assert.equal(
     monsters.some((card) => !CHRONICLE_ELEMENTS.includes(card.element)),
@@ -818,8 +821,8 @@ test("founding role pass provides deep Jutsu and Snare pools without copied iden
     (card) => card.cardClass === "trap",
   );
   // 2026-10-14: +5 Summoning Calls and Shadow Clone.
-  assert.equal(magicCards.length, 55);
-  assert.equal(trapCards.length, 53);
+  assert.equal(magicCards.length, 60);
+  assert.equal(trapCards.length, 58);
   assert.ok(
     magicCards.filter((card) => card.effectTier === "advanced").length >= 16,
   );
@@ -1208,6 +1211,129 @@ test("Flip Summon and manual position changes respect turn restrictions", () => 
   assert.equal(flipped.ok, true);
   if (flipped.ok)
     assert.equal(changePosition(flipped.state, actor, 0, "defense").ok, false);
+});
+
+test("all village commons have unique identities and stay inside their elemental stat budget", () => {
+  assert.equal(new Set(CHRONICLE_CARD_CATALOG.map(card => card.id)).size, CHRONICLE_CARD_CATALOG.length);
+  for (const element of CHRONICLE_ELEMENTS) {
+    const cards = CHRONICLE_VILLAGE_MONSTERS.filter(card => card.element === element);
+    assert.equal(cards.length, 20);
+    assert.deepEqual([1, 2, 3, 4].map(level => cards.filter(card => card.level === level).length), [5, 5, 5, 5]);
+    assert.equal(cards.filter(card => card.defense === 2200).length, 1);
+    assert.equal(cards.filter(card => card.monsterEffect).length, 3);
+    for (const card of cards) {
+      assert.equal(CHRONICLE_CARD_CATALOG.filter(other => other.name === card.name).length, 1, card.name);
+      assert.ok(card.attack > 0 && card.attack <= 1400 && card.defense > 0 && card.defense <= 2200, card.name);
+      assert.equal(card.rarity, "common");
+      const state = summonReady(card.id);
+      const summon = normalSummon(state, state.activePlayer, { action: "normal-summon", handIndex: 0, zoneIndex: 0 });
+      assert.ok(summon.ok, card.id);
+      assert.equal(summon.state[state.activePlayer].monsterZones[0]?.cardId, card.id);
+    }
+  }
+  assert.equal(CHRONICLE_VILLAGE_SUPPORT.filter(card => card.cardClass === "magic").length, 5);
+  assert.equal(CHRONICLE_VILLAGE_SUPPORT.filter(card => card.cardClass === "trap").length, 5);
+});
+
+test("village Jutsu resolve their printed amounts through the normal play action", () => {
+  for (const card of CHRONICLE_VILLAGE_SUPPORT.filter(card => card.cardClass === "magic")) {
+    const state = match(), me = state.activePlayer;
+    state[me].lifePoints = 3000;
+    state[me].hand = [card.id, "tc-01"];
+    placeMonster(state, me, 0, "tc-01");
+    const cast = activateMagic(state, me, { action: "activate-magic", handIndex: 0, targetSide: me, targetZoneIndex: 0 });
+    assert.ok(cast.ok, cast.ok ? card.name : cast.error);
+    const side = cast.state[me], target = side.monsterZones[0]!;
+    switch (card.id) {
+      case "chronicle-bandage-knot": assert.equal(side.lifePoints, 3350); break;
+      case "chronicle-borrowed-footing": assert.equal(target.temporaryAttack, 250); break;
+      case "chronicle-reedwall-stitch": assert.equal(monsterDefense(target), monsterDefense(state[me].monsterZones[0]!) + 300); break;
+      case "chronicle-errand-ledger":
+        assert.equal(side.deck.length, state[me].deck.length - 1);
+        assert.equal(side.hand.length, 1);
+        assert.equal(side.graveyard.length, state[me].graveyard.length + 2);
+        break;
+      case "chronicle-mended-armguard":
+        assert.equal(side.magicTrapZones.find(zone => zone?.instanceId === target.attachedEquipId)?.cardId, card.id);
+        assert.equal(monsterDefense(target), monsterDefense(state[me].monsterZones[0]!) + 250);
+        break;
+      default: assert.fail(card.id);
+    }
+  }
+});
+
+test("all five village Snares open a legal response and resolve it", () => {
+  for (const card of CHRONICLE_VILLAGE_SUPPORT.filter(card => card.cardClass === "trap")) {
+    const state = summonReady("chronicle-spice-mill-loper"), me = state.activePlayer;
+    const foe = me === "p1" ? "p2" : "p1";
+    state.turnNumber = 3;
+    state[foe].magicTrapZones[0] = { instanceId: "cord", cardId: card.id, owner: foe, zoneIndex: 0, faceUp: false, setOnTurn: 1 };
+    const onSummon = card.effect.trigger === "onMonsterSummoned";
+    state.phase = onSummon ? "main1" : "battle";
+    if (!onSummon) {
+      placeMonster(state, me, 0, "tc-01");
+      placeMonster(state, foe, 0, "tc-01", { position: card.id === "chronicle-clattering-shutters" ? "defense" : "attack" });
+      placeMonster(state, foe, 1, "chronicle-granary-menhir", { position: "defense" });
+    }
+    const pending = onSummon
+      ? normalSummon(state, me, { action: "normal-summon", handIndex: 0, zoneIndex: 0 })
+      : declareAttack(state, me, { action: "attack", attackerZoneIndex: 0, targetZoneIndex: 0 });
+    assert.ok(pending.ok, card.id);
+    assert.deepEqual(pending.state.responseWindow?.eligibleZoneIndexes, [0], card.id);
+    const response = activateTrap(pending.state, foe, 0);
+    assert.ok(response.ok, response.ok ? card.id : response.error);
+    assert.equal(response.state.responseWindow, null);
+    assert.ok(response.state[foe].graveyard.includes(card.id));
+    if (onSummon) {
+      assert.equal(response.state[me].monsterZones[0]?.temporaryAttack, -200);
+      assert.equal(response.state[me].monsterZones[0]?.positionLockedUntilTurn, 5);
+    }
+  }
+});
+
+test("Crimson Weaver webs both attack turns even after it leaves the field", () => {
+  const state = summonReady("chronicle-crimson-weaver");
+  state.turnNumber = 3;
+  const me = state.activePlayer;
+  const foe = me === "p1" ? "p2" : "p1";
+  const card = getChronicleCard(state[me].hand[0]);
+  assert.ok(card?.cardClass === "monster");
+  assert.deepEqual([card.element, card.family, card.rarity, card.level, card.attack, card.defense],
+    ["Fire", "Drider", "epic", 3, 1200, 1500]);
+  placeMonster(state, me, 1, "tc-01");
+  const summoned = normalSummon(state, me, { action: "normal-summon", handIndex: 0, zoneIndex: 0 });
+  assert.ok(summoned.ok);
+  const battle = summoned.state;
+  battle.phase = "battle";
+  battle[me].monsterZones[0] = null;
+  const direct = declareAttack(battle, me, { action: "attack", attackerZoneIndex: 1, targetZoneIndex: null });
+  assert.ok(!direct.ok && direct.error.includes("Crimson Weaver"));
+  placeMonster(battle, foe, 0, "tc-02");
+  const view = projectMatchForViewer(battle, me);
+  assert.equal(view[me].monsterZones[1]?.canAttack, false);
+  assert.equal(previewChronicleBattle(view, 1, 0)?.legal, false);
+  battle.phase = "end";
+  const next = endTurn(battle, me).state;
+  next.phase = "battle";
+  assert.equal(next.activePlayer, foe);
+  assert.equal(declareAttack(next, foe, { action: "attack", attackerZoneIndex: 0, targetZoneIndex: 1 }).ok, false);
+  next.phase = "end";
+  const free = endTurn(next, foe).state;
+  free.phase = "battle";
+  assert.equal(projectMatchForViewer(free, me)[me].monsterZones[1]?.canAttack, true);
+  assert.equal(declareAttack(free, me, { action: "attack", attackerZoneIndex: 1, targetZoneIndex: 0 }).ok, true);
+});
+
+test("Setting Crimson Weaver leaves attacks open until its Flip Summon", () => {
+  const state = summonReady("chronicle-crimson-weaver");
+  const me = state.activePlayer;
+  const set = normalSet(state, me, { action: "set-monster", handIndex: 0, zoneIndex: 0 });
+  assert.ok(set.ok);
+  assert.equal(projectMatchForViewer(set.state, me).attacksBlocked, undefined);
+  set.state.turnNumber += 2;
+  const flipped = flipSummon(set.state, me, 0);
+  assert.ok(flipped.ok);
+  assert.equal(projectMatchForViewer(flipped.state, me).attacksBlocked, true);
 });
 
 test("six-phase flow reaches Main 2, End, and the next Draw Phase", () => {

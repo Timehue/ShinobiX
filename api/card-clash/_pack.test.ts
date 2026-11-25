@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { BUILTIN_CLASH, isMarketplaceCard } from '../clan/war/_card-catalog.js';
 import { CHRONICLE_STARTER_GRANT_IDS, deckLimitForCard, getChronicleCard } from '../../shared/chronicle-duel.js';
 import { CHRONICLE_COMMON_EXPANSION } from '../../shared/chronicle-expansion-monsters.js';
+import { CHRONICLE_VILLAGE_MONSTERS } from '../../shared/chronicle-village-monsters.js';
+import { CHRONICLE_VILLAGE_SUPPORT } from '../../shared/chronicle-village-support.js';
 import {
     applyCardPackOpen, cardPackBaseCost, cardPackCost, cardPackDiscountPercent, parseCardPackType,
     splitSurplusCardCopies, CARD_DUPLICATE_CONVERSION, CARD_PACK_TYPES, CARD_PLAYSET_COPIES, type CardPackType,
@@ -10,7 +12,7 @@ import {
 import { sanitizeCardsAndHistory } from '../save/_sanitize-cards-history.js';
 
 /** A draw that never repeats a card inside one pack (every pool has more than
- *  five cards), so a fixture's numbers are not moved by the duplicate rule. */
+ *  three cards), so a fixture's numbers are not moved by the duplicate rule. */
 const distinct = () => { let i = 0; return (max: number) => (i++) % max; };
 
 /** The exact eligible pool a pack draws from, in draw-index order. */
@@ -28,11 +30,13 @@ function poolOf(type: CardPackType): string[] {
 test('the Chronicle expansion drops only from its intended packs', () => {
     const pools = new Map(CARD_PACK_TYPES.map(type => [type, new Set(poolOf(type))]));
     const expansions = [
-        ...CHRONICLE_COMMON_EXPANSION.map(card => ({
+        ...[...CHRONICLE_COMMON_EXPANSION, ...CHRONICLE_VILLAGE_MONSTERS].map(card => ({
             id: card.id, packs: ['standard', card.element.toLowerCase()],
         })),
         { id: 'chronicle-reanimation-jutsu', packs: ['legendary', 'legendary-five'] },
         { id: 'chronicle-guardians-reversal', packs: ['epic', 'epic-five'] },
+        { id: 'chronicle-crimson-weaver', packs: ['epic', 'epic-five'] },
+        ...CHRONICLE_VILLAGE_SUPPORT.map(card => ({ id: card.id, packs: ['standard', card.cardClass === 'trap' ? 'snare' : 'jutsu'] })),
     ];
     for (const { id, packs } of expansions) {
         const actual = CARD_PACK_TYPES.filter(type => pools.get(type)!.has(id));
@@ -50,7 +54,7 @@ test('the Chronicle expansion drops only from its intended packs', () => {
     }
 });
 
-test('each elemental Basic pack draws five matching Monsters for 100 Chronicle Points', () => {
+test('each elemental Basic pack draws three matching Monsters for 100 Chronicle Points', () => {
     for (const element of ['fire', 'water', 'earth', 'wind', 'lightning'] as const) {
         assert.equal(parseCardPackType(element), element);
         const character = { chroniclePoints: 100, ryo: 1000, fateShards: 50, tileCards: [] };
@@ -58,7 +62,7 @@ test('each elemental Basic pack draws five matching Monsters for 100 Chronicle P
         const opened = applyCardPackOpen(character, element, distinct());
         assert.equal(opened.ok, true, element);
         if (!opened.ok) continue;
-        assert.equal(opened.cards.length, 5);
+        assert.equal(opened.cards.length, 3);
         assert.equal(opened.balance, 0);
         assert.equal(opened.character.ryo, 1000);
         assert.equal(opened.character.fateShards, 50);
@@ -140,7 +144,7 @@ test('the Basic pack costs exactly 100 Chronicle Points, ignores ryo-economy dis
     // Shards are byte-identical before and after.
     assert.equal(opened.character.ryo, 1_000);
     assert.equal(opened.character.fateShards, 50);
-    assert.equal(opened.cards.length, 5);
+    assert.equal(opened.cards.length, 3);
     assert.equal(opened.character.tileCards instanceof Array, true);
     // Basic pack draws Commons and Rares outside the premium pool.
     for (const id of opened.cards) {
@@ -183,8 +187,8 @@ test('premium packs debit Fate Shards and draw only Marketplace cards', () => {
     }
 });
 
-for (const [type, rarity, cost] of [['epic-five', 'epic', 35], ['legendary-five', 'legendary', 100]] as const) {
-    test(`${type}: five random cards of the guaranteed rarity cost ${cost} Fate Shards`, () => {
+for (const [type, rarity, cost] of [['epic-five', 'epic', 21], ['legendary-five', 'legendary', 60]] as const) {
+    test(`${type}: three random cards of the guaranteed rarity cost ${cost} Fate Shards`, () => {
         assert.equal(parseCardPackType(type), type);
         const character = { fateShards: cost, chroniclePoints: 500, ryo: 1234, tileCards: [] };
         const opened = applyCardPackOpen(character, type, distinct());
@@ -193,7 +197,7 @@ for (const [type, rarity, cost] of [['epic-five', 'epic', 35], ['legendary-five'
         assert.equal(opened.currency, 'fateShards');
         assert.equal(opened.cost, cost);
         assert.equal(opened.balance, 0);
-        assert.equal(opened.cards.length, 5);
+        assert.equal(opened.cards.length, 3);
         assert.deepEqual(opened.character.tileCards, opened.cards);
         assert.equal(opened.character.ryo, 1234);
         assert.equal(opened.character.chroniclePoints, 500);
@@ -212,7 +216,7 @@ for (const [type, rarity, cost] of [['epic-five', 'epic', 35], ['legendary-five'
             ok: false, status: 409, error: 'Not enough Fate Shards.',
         });
         assert.equal(short.fateShards, cost - 1);
-        const full = { fateShards: cost, tileCards: Array(1196).fill('tc-142') };
+        const full = { fateShards: cost, tileCards: Array(1198).fill('tc-142') };
         assert.deepEqual(applyCardPackOpen(full, type, () => 0), {
             ok: false, status: 409, error: 'Card collection is capped at 1200.',
         });
@@ -245,7 +249,7 @@ test('earned Chronicle records never consume the 1200-card pack inventory budget
     const opened = applyCardPackOpen({
         chroniclePoints: 999,
         tileCards: [
-            ...Array(1195).fill('tc-01'),
+            ...Array(1197).fill('tc-01'),
             'story-wandering-sage',
             'legacy-first-flame',
             'pet-witness-fire',
@@ -254,14 +258,14 @@ test('earned Chronicle records never consume the 1200-card pack inventory budget
         ],
     }, 'standard', () => 0);
     assert.equal(opened.ok, true);
-    // Five pulls of one card: copies past the third convert instead of landing.
+    // Three pulls of one card: copies past the third convert instead of landing.
     if (opened.ok) assert.equal((opened.character.tileCards as unknown[]).length, 1205 - opened.converted.length);
 });
 
 test('the fixed Traveler codex floor never consumes purchasable collection capacity', () => {
     const opened = applyCardPackOpen({
         chroniclePoints: 999,
-        tileCards: [...CHRONICLE_STARTER_GRANT_IDS, ...Array(1195).fill('tc-142')],
+        tileCards: [...CHRONICLE_STARTER_GRANT_IDS, ...Array(1197).fill('tc-142')],
     }, 'standard', () => 0);
     assert.equal(opened.ok, true);
     if (opened.ok) {
@@ -342,15 +346,15 @@ test('Legendary pulls beyond the playset convert, and the kept copies survive a 
     const first = applyCardPackOpen({ fateShards: 200, tileCards: [] }, 'legendary-five', () => 0);
     assert.equal(first.ok, true);
     if (!first.ok) return;
-    assert.equal(first.converted.length, 2, 'three copies kept, two converted');
+    assert.equal(first.converted.length, 0, 'three copies kept');
     const second = applyCardPackOpen(first.character, 'legendary-five', () => 0);
     assert.equal(second.ok, true);
     if (!second.ok) return;
-    assert.equal(second.converted.length, 5);
-    assert.deepEqual(second.cards, Array(5).fill(first.cards[0]), 'the reveal still lists every pull');
+    assert.equal(second.converted.length, 3);
+    assert.deepEqual(second.cards, Array(3).fill(first.cards[0]), 'the reveal still lists every pull');
     assert.deepEqual(second.character.tileCards, Array(CARD_PLAYSET_COPIES).fill(first.cards[0]));
-    // 200 - 2 x 100 spent, 7 surplus Legendaries x 3 back.
-    assert.equal(second.character.fateShards, 21);
+    // 200 - 2 x 60 spent, 3 surplus Legendaries x 3 back.
+    assert.equal(second.character.fateShards, 89);
     const laterSave = structuredClone(second.character);
     sanitizeCardsAndHistory(laterSave, second.character);
     assert.deepEqual(laterSave.tileCards, second.character.tileCards);
@@ -363,9 +367,9 @@ test('Grand Marketplace singles cost Elite 6 and Legendary 20 Fate Shards; the t
     assert.equal(cardPackCost({ elderFocus: 'trade' }, 'epic'), 6);
     assert.equal(cardPackCost({}, 'legendary'), 20);
     assert.equal(cardPackCost({ elderFocus: 'trade' }, 'legendary'), 19);
-    // Per card, a single now matches its Quintet: 20 per Legendary, 35 / 5 = 7 per Epic.
-    assert.equal(cardPackBaseCost('legendary'), cardPackBaseCost('legendary-five') / 5);
-    assert.equal(cardPackBaseCost('epic-five'), 35);
+    // Per card, a single now matches its Trio: 20 per Legendary, 21 / 3 = 7 per Epic.
+    assert.equal(cardPackBaseCost('legendary'), cardPackBaseCost('legendary-five') / 3);
+    assert.equal(cardPackBaseCost('epic-five'), 21);
 });
 
 test('a pulled copy beyond the third converts by rarity; the draw itself is unchanged', () => {
@@ -410,10 +414,10 @@ test('copies kept earlier in the same pack count toward the playset', () => {
     const opened = applyCardPackOpen({ chroniclePoints: 100, tileCards: [id] }, 'standard', () => 0);
     assert.equal(opened.ok, true);
     if (!opened.ok) return;
-    assert.deepEqual(opened.character.tileCards, [id, id, id], 'two of the five pulls are kept');
-    assert.deepEqual(opened.converted.map((entry) => entry.index), [2, 3, 4], 'the later three convert, in draw order');
-    assert.equal(opened.refund.chroniclePoints, 3 * CARD_DUPLICATE_CONVERSION.common.chroniclePoints);
-    assert.equal(opened.balance, 15);
+    assert.deepEqual(opened.character.tileCards, [id, id, id], 'two of the three pulls are kept');
+    assert.deepEqual(opened.converted.map((entry) => entry.index), [2], 'the final pull converts');
+    assert.equal(opened.refund.chroniclePoints, CARD_DUPLICATE_CONVERSION.common.chroniclePoints);
+    assert.equal(opened.balance, 5);
 });
 
 test('starter-codex copies count toward the playset', () => {
@@ -425,7 +429,7 @@ test('starter-codex copies count toward the playset', () => {
     const opened = applyCardPackOpen({ chroniclePoints: 100, tileCards: [...CHRONICLE_STARTER_GRANT_IDS] }, 'standard', () => index);
     assert.equal(opened.ok, true);
     if (!opened.ok) return;
-    assert.equal(opened.converted.length, 5, 'a codex playset converts the very first pull');
+    assert.equal(opened.converted.length, 3, 'a codex playset converts the very first pull');
     assert.deepEqual(opened.character.tileCards, [...CHRONICLE_STARTER_GRANT_IDS]);
 });
 
@@ -477,7 +481,7 @@ test('a card with no known rarity is always kept, never silently converted', () 
 });
 
 test('premium trade-focus prices round to the nearest shard and debit the quoted amount', () => {
-    for (const [type, cost] of [['epic', 6], ['legendary', 19], ['epic-five', 33], ['legendary-five', 95]] as const) {
+    for (const [type, cost] of [['epic', 6], ['legendary', 19], ['epic-five', 20], ['legendary-five', 57]] as const) {
         assert.equal(cardPackCost({ elderFocus: 'trade' }, type), cost);
         const exact = applyCardPackOpen({ elderFocus: 'trade', fateShards: cost, tileCards: [] }, type, distinct());
         assert.equal(exact.ok, true, type);
@@ -486,8 +490,8 @@ test('premium trade-focus prices round to the nearest shard and debit the quoted
         assert.equal(applyCardPackOpen(short, type, distinct()).ok, false, type);
         assert.equal(short.fateShards, cost - 1);
     }
-    // The expected Epic cost retains the intended quintet advantage after discount.
-    assert.ok(cardPackCost({ elderFocus: 'trade' }, 'epic') / (64 / 76) >= cardPackCost({ elderFocus: 'trade' }, 'epic-five') / 5);
+    // The expected Epic cost retains the intended bundle advantage after discount.
+    assert.ok(cardPackCost({ elderFocus: 'trade' }, 'epic') / (poolOf('epic-five').length / poolOf('epic').length) >= cardPackCost({ elderFocus: 'trade' }, 'epic-five') / 3);
     for (const type of CARD_PACK_TYPES.filter(type => !['epic', 'legendary', 'epic-five', 'legendary-five'].includes(type))) {
         assert.equal(cardPackCost({ elderFocus: 'trade' }, type), 100);
     }
