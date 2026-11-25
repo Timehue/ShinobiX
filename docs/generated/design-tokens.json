@@ -2467,7 +2467,7 @@
           },
           {
             "source": "shinobij.client/src/styles/inventory-aaa.css",
-            "line": 631
+            "line": 629
           },
           {
             "source": "shinobij.client/src/styles/pet-battle-readiness.css",
@@ -3189,7 +3189,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/29-clan-exchange-storefront.css",
-            "line": 1707
+            "line": 1667
           },
           {
             "source": "shinobij.client/src/styles/jutsu-training-skin.css",
@@ -3382,7 +3382,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/11-sector-explore-village-themes.css",
-            "line": 658
+            "line": 606
           },
           {
             "source": "shinobij.client/src/styles/index/15-world-map-territory.css",
@@ -3953,7 +3953,7 @@
           },
           {
             "source": "shinobij.client/src/styles/inventory-aaa.css",
-            "line": 570
+            "line": 568
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
@@ -4116,7 +4116,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/34-hollow-gate-combat-director.css",
-            "line": 174
+            "line": 167
           },
           {
             "source": "shinobij.client/src/styles/keeper-path-entrance.css",
@@ -4284,7 +4284,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/06-combat-core.css",
-            "line": 1477
+            "line": 1473
           },
           {
             "source": "shinobij.client/src/styles/index/08-polish-nav-passes.css",
@@ -4292,7 +4292,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/11-sector-explore-village-themes.css",
-            "line": 310
+            "line": 258
           },
           {
             "source": "shinobij.client/src/styles/index/17-shop-inventory-loadout.css",
@@ -4488,7 +4488,7 @@
           },
           {
             "source": "shinobij.client/src/screens/world-map/CoastWorld.css",
-            "line": 61
+            "line": 69
           },
           {
             "source": "shinobij.client/src/styles/bloodline-awakening.css",
@@ -4526,11 +4526,11 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/06-combat-core.css",
-            "line": 1422
+            "line": 1418
           },
           {
             "source": "shinobij.client/src/styles/index/29-clan-exchange-storefront.css",
-            "line": 1706
+            "line": 1666
           },
           {
             "source": "shinobij.client/src/styles/pet-skin.css",
@@ -4739,7 +4739,7 @@
           },
           {
             "source": "shinobij.client/src/screens/world-map/CoastWorld.css",
-            "line": 81
+            "line": 89
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
@@ -5301,7 +5301,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/06-combat-core.css",
-            "line": 1462
+            "line": 1458
           },
           {
             "source": "shinobij.client/src/styles/index/07-combat-skin-battle-log.css",
@@ -5384,7 +5384,7 @@
           },
           {
             "source": "shinobij.client/src/styles/inventory-aaa.css",
-            "line": 555
+            "line": 553
           },
           {
             "source": "shinobij.client/src/styles/profile-skin.css",
