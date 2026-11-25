@@ -205,6 +205,9 @@ def read_portrait(raw: bytes, expected_sha256: str, frame_hash: str, operation: 
     release = json.loads((INSTALL / "sprite-worker-release.json").read_bytes())
     stocky = False
     if release.get("paintedCostumes"):
+        # The painted-costume modules are baked into INSTALL (worker_image), which is not on a function's
+        # import path: without this the import fails and every portrait check dies (2026-11-21 to 11-24).
+        sys.path.insert(0, str(INSTALL))
         from animal_build import stocky_review_available
         stocky = stocky_review_available(release, expected_sha256,
                                         os.environ.get("SPRITE_STOCKY_DECOY_SOURCES", "").split(","))
