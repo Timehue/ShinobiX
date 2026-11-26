@@ -127,7 +127,16 @@ export function liveFightScreen(screen: Screen, savedRun: Screen | null, towerRu
     return towerRunKey.startsWith("wcr80") ? "worldCrisis" : "battleTowers";
 }
 
+/** An old Tower recovery key does not say whether a fight is still active. */
+export function towerNoticeForScreen(screen: Screen, battle: Screen | null, status: "active" | "done" | null): "result" | "resume" | null {
+    if (isBattleViewScreen(screen) || TOWER_HOST_SCREENS.has(screen) || screen === "hospital") return null;
+    if (battle !== null && battle !== "battleTowers") return null;
+    if (status === "done") return "result";
+    return battle === "battleTowers" && status === null ? "resume" : null;
+}
+
 export interface NotifInputs {
+    towerNotice?: "result" | "resume" | null;
     /** Screen hosting a live fight the player has stepped away from, or null. */
     battle: Screen | null;
     /** Active clan war the player's clan is fighting, or null. */
@@ -153,6 +162,15 @@ export function buildNotifications(inputs: NotifInputs): GameNotification[] {
             // World Crisis opens on its Level 37 chronicle; the Level 80 tab is
             // the one that resumes a Reckoning fight.
             ...(inputs.battle === "worldCrisis" ? { targetView: "reckoning" as const } : {}),
+        });
+    }
+
+    if (inputs.towerNotice && !inputs.battle) {
+        const isResult = inputs.towerNotice === "result";
+        out.push({
+            id: isResult ? "towerResult" : "towerResume",
+            icon: isResult ? "🏆" : "⚔️", label: isResult ? "View results" : "Resume Tower run", tone: "info",
+            screen: "battleTowers", title: isResult ? "View Tower results" : "Resume your Tower run",
         });
     }
 

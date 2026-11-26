@@ -16,7 +16,7 @@ import { coastCastMember, coastCastPortrait } from '../../shared/coast-cast.js';
 import { coastSectorName, coastSite } from '../../shared/coast-world.js';
 import { sectorBuilding } from '../../shared/sector-buildings.js';
 import { sectorName } from '../../shared/sector-geo.js';
-import { questLineViews, questSaysHeard, type QuestEngineDeps, type QuestLineView } from './_engine.js';
+import { questDeliveryReservation, questLineViews, questSaysHeard, type QuestEngineDeps, type QuestLineView } from './_engine.js';
 import { coastQuestPresence, type CoastFigure, type CoastQuestMark } from './_coast-presence.js';
 import { coastResidents, type CoastResident } from './_coast-residents.js';
 import { hasQuestLineUnlock, openedCoastRegion, type ActiveQuestLine, type QuestLinesRecord } from './_record.js';
@@ -49,6 +49,7 @@ export interface QuestStageView {
     place?: QuestPlaceView;
     /** gather, deliver and drop: what must be held, and how much is. */
     need?: QuestItemCount;
+    deliveryReservation?: { target: number; message: string };
     recipe?: QuestRecipeView;
     fight?: QuestFightView;
     choice?: { prompt: string; place?: string; options: { key: string; label: string; blurb: string }[] };
@@ -394,6 +395,10 @@ export function questLineClientViews(
         const current = active && active.stage < line.stages.length ? line.stages[active.stage] : undefined;
         const remake = active ? remakeView(deps, line, active, character) : undefined;
         const stage = current && active ? stageView(deps, current, active.stage, character, active.choices, active.found) : undefined;
+        if (current?.kind === 'deliver' && stage?.need) {
+            const reservation = questDeliveryReservation(deps, record, line.id, current.itemId, current.count, stage.need.have);
+            if (reservation) stage.deliveryReservation = reservation;
+        }
         const giverName = coastCastMember(line.giver)?.name ?? 'A keeper';
         const note = questStateNote(view, giverName, offerAt);
         const art =Object.hasOwn(QUEST_PAINTINGS, view.id) ? QUEST_PAINTINGS[view.id] : undefined;

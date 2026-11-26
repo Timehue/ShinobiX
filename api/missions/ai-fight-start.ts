@@ -71,6 +71,7 @@ import {
     withWandererUseState,
 } from '../sector/_wanderer-encounter.js';
 import { sectorPlace } from '../../shared/sector-geo.js';
+import { coastSectorName } from '../../shared/coast-world.js';
 import { STORY_VILLAGE_BIOMES } from '../story/_authoritative-story-combat.js';
 
 type AiFightActivePointer = {
@@ -242,6 +243,7 @@ async function sealAiFightEncounter(
             // raid fight's is the one its receipt / token proved. Practice, dungeon
             // and the sectorless Apex hunt have none and stay weatherless.
             const sky = await sealedSectorWeather(worldSpec ? worldSpec.context.sector : genericAuthority?.sector, now);
+            const locationLabel = worldSpec && coastSectorName(worldSpec.context.sector);
             const session = buildSoloPveAiEncounter({
                 playerName,
                 save,
@@ -257,7 +259,7 @@ async function sealAiFightEncounter(
                         id: worldSpec.context.kind,
                         sourceId: worldSpec.context.sourceId,
                         bindingId: worldSpec.context.chainId ?? worldSpec.context.decisionId,
-                        metadata: { sector: worldSpec.context.sector, stage: worldSpec.context.stage },
+                        metadata: { sector: worldSpec.context.sector, stage: worldSpec.context.stage, ...(locationLabel ? { locationLabel } : {}) },
                     },
                 } : {}),
                 // Open-world fights are continuous: seeded from the vitals the player
@@ -360,6 +362,14 @@ function worldStartBody(recovered: {
     token: AiFightToken;
     session: SoloPveSession;
 }, resumed: boolean) {
+    const { session, pointer } = recovered;
+    // Older recoverable fights predate the label. Use the sealed encounter's
+    // sector, not the player's current position, and do not change the session.
+    const locationLabel = !session.encounter.metadata?.locationLabel && coastSectorName(pointer.context.sector);
+    const presentation = locationLabel ? {
+        ...session,
+        encounter: { ...session.encounter, metadata: { ...session.encounter.metadata, locationLabel } },
+    } : session;
     return {
         ok: true,
         token: recovered.pointer.token,
@@ -369,8 +379,8 @@ function worldStartBody(recovered: {
         baseXp: recovered.token.baseXp ?? 0,
         baseRyo: recovered.token.baseRyo ?? 0,
         sessionId: recovered.pointer.sessionId,
-        session: recovered.session,
-        worldContext: recovered.pointer.context,
+        session: presentation,
+        worldContext: pointer.context,
         ...(recovered.pointer.context.encounter ? { encounter: recovered.pointer.context.encounter } : {}),
         resumed,
     };

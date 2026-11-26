@@ -6,7 +6,7 @@ import { BattleTowerFight } from "./BattleTowerFight";
 import { fetchTowerState, TowerStateApiError, type TowerSession, type TowerHostLoadout } from "../lib/towers-api";
 import type { GameItem, SavedBloodline } from "../types/combat";
 import { buildHostLoadout } from "../lib/host-loadout";
-import { setTowerFightRunId, towerPvpMatchIdFromRunKey, TOWER_RUN_KEY } from "../lib/screen-guards";
+import { setTowerFightRunId, towerPvpMatchIdFromRunKey, setTowerRunStatus, TOWER_RECOVERY_RUN_KEY, TOWER_RUN_KEY } from "../lib/screen-guards";
 import {
 } from "../lib/tower-pvp-api";
 import { gameConfirm } from "../components/GameAlert";
@@ -29,7 +29,7 @@ import { gameConfirm } from "../components/GameAlert";
 // (hasActiveTowerFight). lib can't import from screens, so screen-guards keeps a
 // duplicate of this exact key string — keep the two in sync.
 export { TOWER_RUN_KEY };
-export const TOWER_RECOVERY_RUN_KEY = "shinobix:towerRecoveryRunId:v1";
+export { TOWER_RECOVERY_RUN_KEY };
 
 type View =
     | { phase: "checking"; runId: string }                       // resuming a persisted run
@@ -52,6 +52,7 @@ function clearRecoveryKey() {
 function clearRunKeys() {
     clearFightKey();
     clearRecoveryKey();
+    setTowerRunStatus(null);
 }
 
 // Bound on the resume probe. A proxy can accept then silently hold a request; the
@@ -115,6 +116,7 @@ export function BattleTowers({ character, creatorItems, savedBloodlines, updateC
             if (view.phase === "checking" || view.phase === "resumeError" || view.phase === "fight") {
                 setTowerFightRunId(view.runId);
                 writeRecoveryKey(view.runId);
+                if (view.phase === "fight") setTowerRunStatus(view.runId, view.session.status);
             } else clearRunKeys();
         } catch { /* storage disabled */ }
     }, [view]);
@@ -122,7 +124,9 @@ export function BattleTowers({ character, creatorItems, savedBloodlines, updateC
     // Stable identity on purpose. The Ready Room's poll effect depends on this
     // through its own enterActiveRoom callback, so an inline arrow here made that
     // effect tear down and re-issue fetchTowerParty on EVERY App re-render.
+    const markRunResolved = useCallback((runId: string) => setTowerRunStatus(runId, "done"), []);
     const enterRun = useCallback((runId: string, session: TowerSession) => {
+        setTowerRunStatus(runId, session.status);
         setTowerFightRunId(runId);
         writeRecoveryKey(runId);
         setView({ phase: "fight", runId, session });
@@ -184,6 +188,7 @@ export function BattleTowers({ character, creatorItems, savedBloodlines, updateC
                 runId={view.runId}
                 initialSession={view.session}
                 onRecordBattle={onRecordBattle}
+                onRunResolved={markRunResolved}
                 settleOnAnyDone
                 onContinue={view.session.worldBossEvent ? undefined : () => { clearRunKeys(); setView({ phase: "lobby" }); }}
                 onLeaveActive={() => {
