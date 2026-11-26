@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cameraLean, createContinuousWorldRenderer, worldTilesAcross } from './continuous-world-renderer';
+import { cameraLean, createContinuousWorldRenderer, WORLD_FLOOR_LOOKAHEAD_TILES, worldTilesAcross } from './continuous-world-renderer';
 import type { ContinuousWorldSpace } from '../../../shared/continuous-world-space';
 import { sectorBiomeOf } from '../../../shared/sector-geo';
 import { sectorWalkMask } from '../../../shared/sector-walk-mask';
@@ -278,6 +278,20 @@ test('walking copies cached terrain tiles instead of repainting the world', () =
     for (let frame = 0; frame < 10; frame++) renderer.draw({ x: 30, y: 6 }, 9);
     assert.equal(counts.tilePaints, settled);
 }));
+
+test('a road walk asks for the next floor well before it scrolls in, and none at arrival', () => harness(({ renderer, images }) => {
+    const next = worldFloorSource(31);
+    const asked = () => images.filter(image => image.src === next).length;
+    settle(renderer, { x: 6, y: 6 });
+    assert.equal(asked(), 0, 'a neighbour 34 tiles down the road is not fetched on arrival');
+    // Walk east along the road, one 120 Hz frame at a time, at a run.
+    let x = 6, firstAsk = NaN;
+    for (; x < 46; x += 5 / 120) { renderer.draw({ x, y: 6 }, 9); if (asked() && Number.isNaN(firstAsk)) firstAsk = x; }
+    // A 120 px map shows 7 tiles: the floor used to be asked for 2 tiles past the edge (x 40.5).
+    assert.ok(firstAsk <= 46 - 3.5 - WORLD_FLOOR_LOOKAHEAD_TILES + .1, `asked at x ${firstAsk}`);
+    assert.ok(46 - 3.5 - firstAsk >= 10, 'at least two seconds ahead at a run');
+    assert.equal(asked(), 1, 'one request: the floor is kept, not dropped and asked again while walking in');
+}, { chunks: [{ sector: 9, x: 0, y: 0 }, { sector: 31, x: 46, y: 0 }] }));
 
 test('a floor map decodes off the frame: a draw never decodes it or builds its painting', async () => {
     // Drawing a loaded-but-undecoded 1024px webp decodes it inside that frame, and
