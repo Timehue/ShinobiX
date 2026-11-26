@@ -8,7 +8,8 @@ import { isPlayerModel, type PlayerModel } from '../../shared/player-model-ref.j
 import type { ModelRetryCause } from '../../shared/avatar-model-operations.js';
 import { isBudgetedProvider, type AdmissionPolicy, type ProviderReservation } from './_admission.js';
 import { readPrivateModelFile, storePaintedFit, validatePaintedFit } from './_private-files.js';
-import { modelModalEnvironment, moderateModelPortrait } from './_read-provider.js';
+import { modelModalEnvironment, moderateModelPortrait, workerFailureDetail } from './_read-provider.js';
+import { safeLogValue } from '../_safe-log.js';
 import { endModelJob } from './_settlement.js';
 import { fixedSettlementOps } from './_fixed-cost.js';
 import { modelOwnerProof } from './_owner.js';
@@ -42,12 +43,16 @@ type StageRequest = Pick<DispatchJob,'attempt'|'assetId'|'sourceSha256'|'masterS
         recognition?:RecognitionOperation; finishedCall?:string};
 type StageReply = {status:'unknown'|'pending'|'failed'|'complete'|'lost-style'|'invalid-art'; callId?:string; movement?:string;
     model?:PlayerModel & {objects:number; bytes:number}; descriptor?:string; sheet?:string; lostStyle?:string;
-    recognitionReceipt?:RecognitionReceipt};
+    recognitionReceipt?:RecognitionReceipt;
+    /** A failed step's last lines of error output, for the server log only (optional; older workers omit it). */
+    detail?:string};
 const prefix = 'avatar-model:';
 const callIdPattern = /^fc-[A-Za-z0-9]{1,100}$/;
 /** A job's highest attempt (the worker accepts the same, dispatch_stage.py MAX_ATTEMPT): one style retry plus a
  *  full rebuild of the three styles after a failed assembly must not use up a job (owner, 2026-11-20). */
 const MAX_ATTEMPTS = 5;
+/** A crashed costume painting is painted once more (dispatch_stage.py accepts paint attempts 1 and 2). */
+const PAINT_ATTEMPTS = 2;
 // Allow the longest style invocation to finish and its started call to become discoverable.
 const unknownSubmissionGraceMs = 6 * 60 * 60_000;
 
@@ -216,7 +221,7 @@ export async function advanceSpriteJob(id:string, policy:AdmissionPolicy, run=mo
         if (job.callId) for (const style of styles) {
             if (style===stage || job.completed?.[style] || job.running?.[style]) continue;
             try { if (await startEarly(style)==='stop') return; }
-            catch { console.warn('[avatar-model] Unable to start a style early for job',id,style); }
+            catch (error) { console.warn('[avatar-model] Unable to start a style early for job',id,style,safeLogValue(error)); }
         }
     }
     const request:StageRequest = {stage, assetId:job.assetId, sourceSha256:job.sourceSha256,
@@ -307,7 +312,10 @@ export async function advanceSpriteJob(id:string, policy:AdmissionPolicy, run=mo
         if (stage==='paint') {
             const sheet=Buffer.from(result.sheet!,'base64'), descriptor=Buffer.from(result.descriptor!,'base64');
             try { validatePaintedFit(job.sourceSha256,job.kitVersion!,descriptor,sheet); }
-            catch { await endModelJob(id,job.slug,'output-validation',job); return; }
+            catch (error) {
+                console.error('[avatar-model] Painted fit rejected for job',id,safeLogValue(error));
+                await endModelJob(id,job.slug,'output-validation',job); return;
+            }
             const digest=createHash('sha256').update(descriptor).digest('hex');
             if (job.checkedPainting && job.checkedPainting!==digest) {
                 await endModelJob(id,job.slug,'output-validation',job); return;
@@ -347,7 +355,12 @@ export async function advanceSpriteJob(id:string, policy:AdmissionPolicy, run=mo
         }
         delete next.callId;
     } else if (result.status==='failed') {
-        if (stage==='paint' || stage==='recognize' || job.attempt>=MAX_ATTEMPTS) { await endModelJob(id,job.slug,'provider-outage',job); return; }
+        console.warn('[avatar-model] Worker step failed for job',id,stage+'/'+job.attempt,workerFailureDetail(result));
+        // A crashed painting is retried once (owner, 2026-11-25: a worker fault, not the portrait, must not cost a
+        // player their model). A refused one comes back as invalid-art and ends above; the worker takes attempt 2 only.
+        if ((stage==='paint' && job.attempt>=PAINT_ATTEMPTS) || stage==='recognize' || job.attempt>=MAX_ATTEMPTS) {
+            await endModelJob(id,job.slug,'provider-outage',job); return;
+        }
         if (stage==='finish') {
             // Assembling the same three renders again fails the same way (Nero, 2026-11-20: three identical
             // failures). Render all three afresh instead: started side by side they share one machine, so their
@@ -400,7 +413,10 @@ export async function publishSpriteJob(id:string, run=modalStage) {
     const reply=await run({stage:'publish',attempt:job.attempt,assetId:job.assetId,masterSha256:job.masterSha256,
         sourceSha256:job.sourceSha256,callId:initial.finishedCall,model});
     if (reply.callId!==initial.finishedCall) throw new Error('Invalid publication call');
-    if (reply.status==='failed') { await endModelJob(id,job.slug,'provider-outage',job); return; }
+    if (reply.status==='failed') {
+        console.warn('[avatar-model] Worker step failed for job',id,'publish/'+job.attempt,workerFailureDetail(reply));
+        await endModelJob(id,job.slug,'provider-outage',job); return;
+    }
     if (reply.status!=='complete' || !reply.model || reply.model.version!==model.version ||
         reply.model.assetId!==job.assetId || reply.model.bytes!==model.bytes || reply.model.objects!==model.objects)
         throw new Error('Unverified sprite publication');
@@ -431,7 +447,8 @@ export async function publishSpriteJob(id:string, run=modalStage) {
 export const STALL_MS = 6 * 60 * 60_000;
 const stallKey = (id:string) => prefix+'stall:'+id;
 
-/** A clean pass forgets any run of errors. */
+/** A clean pass forgets any run of errors. Best effort, so silent: a row left behind is only re-read on the
+ *  next error, and it expires on its own (7 days). */
 export async function clearStall(id:string) {
     const since = await kv.get<number>(stallKey(id)).catch(() => null);
     if (since !== null) await kv.compareSetMany?.([{op:'delete',key:stallKey(id),expected:since}]).catch(() => false);
@@ -448,7 +465,7 @@ export async function noteStall(id:string, now=Date.now(), end=endModelJob) {
         if (now - since < STALL_MS) return;
         const job = await kv.get<DispatchJob>(prefix+'job:'+id);
         if (job?.slug && await end(id, job.slug, 'provider-outage') !== 'conflict') await clearStall(id);
-    } catch { console.warn('[avatar-model] Unable to record a stalled job', id); }
+    } catch (error) { console.warn('[avatar-model] Unable to record a stalled job', id, safeLogValue(error)); }
 }
 
 export async function tickSpriteDispatch() {
@@ -457,7 +474,7 @@ export async function tickSpriteDispatch() {
     await withScheduledJobLease('avatar-model-dispatch', async () => {
         // Finish the portrait checks of players who closed the window first, so a model they start
         // joins this pass's queue.
-        await tickPortraitChecks().catch(() => console.warn('[avatar-model] Portrait checks unavailable'));
+        await tickPortraitChecks().catch(error => console.warn('[avatar-model] Portrait checks unavailable', safeLogValue(error)));
         const jobs=await kv.get<string[]>(prefix+'dispatch');
         const config=JSON.parse(process.env.AVATAR_MODEL_RESERVATIONS_JSON??'{}') as AdmissionPolicy;
         const policy={...config,enabled:process.env.AVATAR_MODEL_CREATION_ENABLED==='1' &&
@@ -465,11 +482,11 @@ export async function tickSpriteDispatch() {
         for (const id of jobs??[]) {
             // A render-stage tick can make three worker calls (two early starts and the poll), each up to 120 s.
             try { if ((await withScheduledJobLease('avatar-model-job:'+id,()=>advanceSpriteJob(id,policy),{ttlSec:420})).acquired) await clearStall(id); }
-            catch { console.warn('[avatar-model] Unable to advance private job',id); await noteStall(id); }
+            catch (error) { console.warn('[avatar-model] Unable to advance private job',id,safeLogValue(error)); await noteStall(id); }
         }
         for (const id of await kv.get<string[]>(prefix+'publish')??[]) {
             try { if ((await withScheduledJobLease('avatar-model-publish:'+id,()=>publishSpriteJob(id),{ttlSec:900})).acquired) await clearStall(id); }
-            catch { console.warn('[avatar-model] Unable to verify sprite publication',id); await noteStall(id); }
+            catch (error) { console.warn('[avatar-model] Unable to verify sprite publication',id,safeLogValue(error)); await noteStall(id); }
         }
         // Every write inside also proves this outer lease is live, so it must outlast the inner ones
         // (420 s per job, 900 s per publication). The lease is released as soon as the tick ends.

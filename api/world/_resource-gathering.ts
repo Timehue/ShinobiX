@@ -1,3 +1,6 @@
+import { coastLayout, COAST_WORLD_VERSION } from '../../shared/coast-world.js';
+import { coastTileWalkable } from '../../shared/coast-world-rules.js';
+import { COAST_RESOURCE_NODES } from '../../shared/coast-resource-nodes.js';
 import { randomInt } from 'node:crypto';
 import { addOwned, countOwned, removeOwned } from '../craft/_forge.js';
 import { gatheringTool, gatheringToolRemaining, useGatheringTool } from '../../shared/gathering-tools.js';
@@ -20,6 +23,8 @@ export type ResourceSeal = ResourcePublicAttempt & {
     sharedNode?: true;
     successDraw: number; qualityDraw: number; traceDraw: number; toolBroke: boolean; authorityEpoch: number;
     worldBossEventId?: string;
+    /** Quest stage identity sealed at admission; only a matching live stage may award a batch. */
+    saltstairCordStageAt?: number;
     rules: { version: 1 | 2; difficulty: number; ceiling: ResourceGrade; family: GatherFamily; trace?: GatherTrace };
 };
 /** Kama Reaping fields: any template in this range seeds a distinct field. */
@@ -33,7 +38,12 @@ export function resourcePositionError(player: OnlinePlayer | null, node: Resourc
 }
 export function resourceAdmissionError(character: Record<string, unknown>, node: ResourceNode, now: number, shared = false) {
     // A quest site stands on the coast, which has its own floors (api/quests/_sites.ts).
-    if (!(questSite(node.id) ? questSiteWorkable(node) : validResourceNodeTerrain(node))) return 'This gathering spot is no longer available.';
+    const coastal = COAST_RESOURCE_NODES.find(candidate => candidate.id === node.id);
+    const layout = coastal && coastLayout(coastal.sector);
+    const workable = coastal ? layout && coastal.layoutVersion === COAST_WORLD_VERSION &&
+        coastal.sector === node.sector && coastal.approach === node.approach && coastTileWalkable(layout.mask, node.approach)
+        : questSite(node.id) ? questSiteWorkable(node) : validResourceNodeTerrain(node);
+    if (!workable) return 'This gathering spot is no longer available.';
     if (node.dormant) return 'Nothing is growing here right now. Wild plants spring up somewhere new every half hour.';
     const state = readResourceGathering(character.resourceGathering);
     if (state.active) return 'Finish or cancel your current gathering attempt first.';
@@ -88,7 +98,7 @@ export function admitResourceAttempt(character: Record<string, unknown>, seal: R
             ...(seal.harvest ? { harvest: seal.harvest } : {}),
             movementSequence: seal.movementSequence, toolBroke: tool.broke, toolId: seal.toolId } } };
 }
-export function resolveResourceAttempt(character: Record<string, unknown>, id: string, input: { cancel?: boolean; placements?: unknown; events?: unknown }, player: OnlinePlayer | null, now: number, seal?: ResourceSeal) {
+export function resolveResourceAttempt(character: Record<string, unknown>, id: string, input: { cancel?: boolean; placements?: unknown; events?: unknown }, player: OnlinePlayer | null, now: number, seal?: ResourceSeal, saltstairBatchCount = 0) {
     const state = readResourceGathering(character.resourceGathering);
     const prior = state.receipts.find(r => r.id === id);
     if (prior) return { ok: true as const, character, receipt: prior, replayed: true };
@@ -105,6 +115,10 @@ export function resolveResourceAttempt(character: Record<string, unknown>, id: s
     // covers short-lived attempts created before rule snapshots were added.
     const rules = active.rules ?? { version: 1, difficulty: node.difficulty, ceiling: node.ceiling, family: node.family, trace: node.trace };
     if (rules.version !== 1 && rules.version !== 2 && !input.cancel) return { ok: false as const, error: 'This attempt uses unavailable rules. Cancel it to return to the map.' };
+    // Quest sites use sealed item IDs outside the ordinary GatherFamily union.
+    const cordBatch = validSeal && typeof active.saltstairCordStageAt === 'number'
+        && active.nodeId === 'saltstair-harvest-102' && active.mode === 'relaxed' && String(rules.family) === 'quest-wrack-cord'
+        ? saltstairBatchCount : 0;
     const expired = now >= active.expiresAt;
     const interrupted = Boolean(resourcePositionError(player, node)) || (player ? player.movementSeq ?? 0 : -1) !== active.movementSequence
         || (player ? player.resourceEpoch ?? 0 : -1) !== active.authorityEpoch;
@@ -132,7 +146,7 @@ export function resolveResourceAttempt(character: Record<string, unknown>, id: s
                 if ('catchInfo' in fishing) fishingCatch = fishing.catchInfo;
             }
         }
-        if (!gameFailed && ((active.fishingStyle === 'kunai' && active.mode === 'active')
+        if (!gameFailed && (cordBatch > 0 || (active.fishingStyle === 'kunai' && active.mode === 'active')
             || active.successDraw * 100 < resourceSuccessRate(active.skillLevel, rules.difficulty, performance))) outcome = 'success';
     }
     const xp = outcome === 'success' ? (rules.version === 1 ? 10 : RESOURCE_SUCCESS_XP)
@@ -144,10 +158,10 @@ export function resolveResourceAttempt(character: Record<string, unknown>, id: s
         ...(node.worldBossCrystal && active.worldBossEventId ? { worldBossEventId: active.worldBossEventId } : {}), settledAt: now };
     let receipt: ResourceReceipt, next = character;
     if (isQuestOnlyItem(rules.family)) {
-        // A quest site pays one of its quest material per success, from the
-        // SEALED rules: ungraded, with no trace find and nothing else.
-        receipt = { ...settled, ...(outcome === 'success' ? { itemId: rules.family, count: 1 } : {}) };
-        if (outcome === 'success') next = addOwned(next, rules.family, 1, true);
+        // A quest site pays its sealed, ungraded material with no trace.
+        const count = outcome === 'success' ? cordBatch || 1 : 0;
+        receipt = { ...settled, ...(count ? { itemId: rules.family, count } : {}) };
+        if (count) next = addOwned(next, rules.family, count, true);
     } else if (active.activity === 'harvesting') {
         // Owner-approved table (shared/harvesting.ts), paid from the SEALED rules
         // and trace draw. Harvest ids are plain and ungraded.

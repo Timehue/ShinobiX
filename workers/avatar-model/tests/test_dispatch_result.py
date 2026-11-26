@@ -63,7 +63,8 @@ class FinishedCallTest(unittest.TestCase):
             lookup.assert_not_called()
             verify.side_effect = ValueError("missing pages")
             lookup.return_value.get.side_effect = InternalFailure("worker terminated")
-            self.assertEqual(publish(request, lookup, destination), {"status": "failed", "callId": "fc-finish"})
+            self.assertEqual(publish(request, lookup, destination),
+                             {"status": "failed", "callId": "fc-finish", "detail": "InternalFailure: worker terminated"})
             lookup.side_effect = ModalConnectionError("transport interrupted")
             with self.assertRaises(ModalConnectionError):
                 publish(request, lookup, destination)

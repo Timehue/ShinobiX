@@ -1,5 +1,6 @@
 import { COURTYARD_MODEL_SCALE, ROOM_MODEL_SCALE, SettlementPlayer } from "./CoastModelScale";
-import type { Character } from "../../types/character";
+import type { Character, VersionedCharacterCommit } from "../../types/character";
+import type { CoastSite } from "../../lib/quest-lines-api";
 import { CoastFigure } from "./CoastPatrols";
 import { useEffect, useRef, useState } from "react";
 import type { CoastFloor, CoastStation } from "../../../../shared/coast-world-rules";
@@ -8,6 +9,8 @@ import { usePlayerGaits } from '../../lib/sector-obstacles';
 import { worldMovementRequest } from '../../lib/continuous-world-client';
 import { playerGaitTilesPerSecond } from '../../../../shared/sector-gait-rates';
 import { footprintStyle, GRID, neighbours, open, pathTo, STEP } from "./coast-grid";
+import { CoastRoomDuty } from "./CoastRoomDuty";
+import { dutyAttendantTile, useRoomDuty } from "./use-room-duty";
 
 const movementTime = () => performance.now();
 // Percent down the painting at which feet pass in front of each landmark.
@@ -26,9 +29,9 @@ type Props = {
      * was found, so leaving does not lose it; `examine` answers with what to show.
      */
     clues?: { floor: number; station: string; examine: () => Promise<{ text: string; order?: boolean }> }[];
-};
+} & ({ dutySite: CoastSite | undefined; commit: VersionedCharacterCommit } | { dutySite?: never; commit?: never });
 
-export default function CoastInterior({ floors, avatar, leave, keeper, onStation, residents, onSpeak, initialTile, street, player, clues }: Props) {
+export default function CoastInterior({ floors, avatar, leave, keeper, onStation, residents, onSpeak, initialTile, street, player, clues, dutySite, commit }: Props) {
     const [level, setLevel] = useState(0);
     const [tile, setTile] = useState(initialTile !== undefined && open(floors[0].mask, initialTile) ? initialTile : floors[0].spawn);
     const [message, setMessage] = useState("");
@@ -46,6 +49,14 @@ export default function CoastInterior({ floors, avatar, leave, keeper, onStation
     const journey = useRef(0);
     const board = useRef<HTMLDivElement>(null);
     const room = floors[level];
+    const work = useRoomDuty(dutySite, player.name, commit);
+    const dutyHeading = useRef<HTMLHeadingElement>(null);
+    const [bench, setBench] = useState("");
+    const attendantTile = work && !residents?.length && !(!level && keeper?.room) ? dutyAttendantTile(room, work.duty) : undefined;
+    function visitDutyStation(station: CoastStation) {
+        work?.inspect(station.name);
+        setBench(station.name);
+    }
     const painting = room.art && (room.art.startsWith("/") ? room.art : "/coast-map/" + room.art);
     const figureScale = street ? COURTYARD_MODEL_SCALE : ROOM_MODEL_SCALE;
     useEffect(() => {
@@ -67,6 +78,7 @@ export default function CoastInterior({ floors, avatar, leave, keeper, onStation
             move(stair.arrival);
             setLevel(stair.to);
         } else if (station) {
+            visitDutyStation(station);
             if (onStation) { onStation(station); return; }
             const asked = clues?.find(entry => entry.floor === level && entry.station === station.name);
             if (asked) {
@@ -85,6 +97,7 @@ export default function CoastInterior({ floors, avatar, leave, keeper, onStation
         const token = ++journey.current;
         const route = pathTo(room.mask, position.current, to);
         if (!route) { setMessage("There is no open path to that spot."); return; }
+        setBench("");
         setMessage("");
         // Finish the step already on screen before following a replacement route.
         if (nextStep.current > movementTime()) await waitForStep();
@@ -140,13 +153,23 @@ export default function CoastInterior({ floors, avatar, leave, keeper, onStation
                 tile={Math.floor(resident.feet[1] * GRID / 100) * GRID + Math.floor(resident.feet[0] * GRID / 100)} feet={resident.feet} seatedArt={resident.seatedArt}
                 model={resident.model} label={resident.label} image={"/coast-map/residents/" + resident.model + ".webp"} disabled={false}
                 pick={() => { void walk(resident.approach, undefined, () => onSpeak?.(resident.label)); }} />)}
+            {work && attendantTile !== undefined && <CoastFigure tile={attendantTile} scale={figureScale}
+                label={"Speak with the " + work.duty.worker.toLowerCase()} model={work.duty.model} disabled={false}
+                pick={() => dutyHeading.current?.focus()} />}
             {!level && keeper?.room && <CoastFigure mask={room.mask} tile={Math.floor(keeper.room[1]) * GRID + Math.floor(keeper.room[0])}
-                scale={figureScale} label={keeper.label} model={keeper.model} image={keeper.image} disabled={false} pick={() => setMessage(keeper.label)} />}
+                scale={figureScale} label={keeper.label} model={keeper.model} image={keeper.image} disabled={false} pick={() => { setMessage(keeper.label); dutyHeading.current?.focus(); }} />}
             <SettlementPlayer character={player} avatar={avatar} tile={tile} scale={figureScale} gait={gait} />
             {gaits && <WorldRunButton timers={timers} onWindow={onRunWindow} />}
         </div>
         <div className="coast-site-body">
             <h3>{room.title}{floors.length > 1 && " · Floor " + (level + 1) + " of " + floors.length}</h3>
+            {work && <CoastRoomDuty work={work} floors={floors} level={level} heading={dutyHeading}
+                atBench={bench === work.duty.operate}
+                approach={() => {
+                    const station = room.stations.find(entry => entry.name === work.station);
+                    if (station) void walk(station.approach, undefined, () => visitDutyStation(station));
+                }}
+                respond={answer => { if (bench === work.duty.operate) work.deliver(answer); }} />}
             <div className="coast-list">{actions.map(action => <button key={action.label} type="button" onClick={action.activate}>{action.label}</button>)}
                 {!!room.doors.length && <button type="button" onClick={() => void walk(room.doors[0])}>Walk outside</button>}
             </div>

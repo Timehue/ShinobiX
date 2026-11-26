@@ -101,6 +101,46 @@ test('confirmed jobs paint once, bind the replacement to the screened rig and re
     assert.equal((await kv.keys(prefix+'slot:*')).length,1);
 });
 
+test('a crashed costume painting is painted once more, and a second crash ends the job',async()=>{
+    Object.assign(process.env,{NODE_ENV:'test',SHINOBIX_QA_MEMORY_KV:'1'});
+    const {kv}=await import('../_storage.js');
+    const {perImageKey}=await import('../images.js');
+    const {issueModelRead,admitModelJob}=await import('./_admission.js');
+    const {advanceSpriteJob}=await import('./_dispatch.js');
+    const {portrait,screened,painted,art}=await costumeFixture();
+    const {templateSha256}=JSON.parse(screened.toString());
+    const policy={enabled:true,dailyLimit:20,recognition:{model:'local-vision-fixture',poolSha256:'9'.repeat(64)},providers:(['modal','openai'] as const).map(provider=>({
+        provider,cycle:'crashed',limitMicros:300,perAttemptMicros:10}))};
+    for (const crashes of [1,2]) {
+        const owner='crashed-paint-'+crashes;
+        await kv.set('save:'+owner,{character:{patreon:{active:true,source:'promo',tier:'supporter'}}});
+        await kv.set(perImageKey('avatar:'+owner),'data:image/webp;base64,'+portrait.toString('base64'));
+        const token=await issueModelRead({slug:owner,sourceSha256:hash(portrait),masterSha256:hash(screened),
+            path:'A',kitVersion:templateSha256,pipelineVersion:'review',summary:'Field coat',paintCostume:true,
+            revision:0,expiresAt:Date.now()+60000});
+        const job=await admitModelJob(owner,token,token,policy); assert.ok('jobId' in job);
+        const attempts:number[]=[];
+        const tick=()=>advanceSpriteJob(job.jobId,policy,async request=>{
+            if (request.stage!=='paint') return {status:'pending',callId:'fc-'+request.stage};
+            const call='fc-paint'+request.attempt;
+            if (!request.callId) { attempts.push(request.attempt); return {status:'pending',callId:call}; }
+            if (request.attempt<=crashes) return {status:'failed',callId:call,detail:'StepFailed: paint exited 1'};
+            return {status:'complete',callId:call,descriptor:painted.toString('base64'),sheet:art.toString('base64')};
+        },async kind=>kind==='portraits' ? portrait : screened,{moderate:async(data:Buffer)=>hash(data),
+            store:async()=>'c'.repeat(64)});
+        for (let n=0;n<5;n++) await tick();
+        const saved=await kv.get<{state:string;errorCode?:string;attempt:number;monthKey:string;retryCauses?:Record<string,number>}>('avatar-model:job:'+job.jobId);
+        assert.deepEqual(attempts,[1,2],'one fresh painting after a crash, never a third');
+        if (crashes===1) {
+            assert.notEqual(saved?.state,'failed');
+            assert.deepEqual(saved?.retryCauses,{'worker-failure':1});
+        } else {
+            assert.equal(saved?.state,'failed'); assert.equal(saved.errorCode,'provider-outage');
+            assert.equal(await kv.get('avatar-model:slot:'+owner+':'+saved.monthKey),null);
+        }
+    }
+});
+
 test('a rejected generated costume returns the slot and never enters animation',async()=>{
     Object.assign(process.env,{NODE_ENV:'test',SHINOBIX_QA_MEMORY_KV:'1'});
     const {kv}=await import('../_storage.js');

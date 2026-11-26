@@ -1,3 +1,4 @@
+import { COAST_RESOURCE_NODES } from '../../shared/coast-resource-nodes.js';
 import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
 import { alreadyHoldsKvLock } from '../_kv-lock-context.js';
@@ -108,13 +109,13 @@ export async function releaseSharedResourceClaim(nodeId: string, player: string,
     await write(nodeId, row);
 }
 export async function sharedResourceViews(sector: number, now: number): Promise<Record<string, SharedResourceNodeView>> {
-    const nodes = [...RESOURCE_NODES, ...HARVEST_NODES, ...WORLD_BOSS_CRYSTAL_NODES].filter(node => node.sector === sector);
+    const nodes = [...RESOURCE_NODES, ...HARVEST_NODES, ...COAST_RESOURCE_NODES, ...WORLD_BOSS_CRYSTAL_NODES].filter(node => node.sector === sector);
     if (!nodes.length) return {};
     const rows = await kv.mget(...nodes.map(node => sharedResourceNodeKey(node.id)));
     return Object.fromEntries(await Promise.all(nodes.map(async (node, i) => {
         const row = normalize(rows[i] as SharedResourceNodeRow | null, now), claim = await liveClaim(node.id, row.claim, now);
         // A meadow shows this half hour's bloom even while it waits to refill.
-        const bloom = node.activity === 'harvesting' ? harvestBloom(node, now) : undefined;
+        const bloom = node.activity === 'harvesting' && !node.id.startsWith('coast-resource-') ? harvestBloom(node, now) : undefined;
         return [node.id, { remaining: Math.max(0, RESOURCE_NODE_ATTEMPTS - row.attempts), refillAt: row.refillAt,
             difficulty: offerFor(node, row, now).difficulty,
             ...(bloom ? { family: bloom.family, ...(bloom.present ? {} : { dormant: true as const }) } : {}),

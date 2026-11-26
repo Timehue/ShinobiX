@@ -34,6 +34,18 @@ test('a stage names its place, what must be held, and how much is', () => {
     assert.equal(JSON.stringify(fiber).includes('Smoke Hold'), false, 'a later stage is not described ahead of time');
 });
 
+test('a hand-in shows cord reserved for another active quest before a player clicks', () => {
+    const stages = { 'saltstair-rounds-2': { stage: 3, at: 1 }, 'first-footing': { stage: 4, at: 1 } };
+    const active = (count: number) => line(views({ active: stages }, hero([{ itemId: 'quest-wrack-cord', count }])), 'saltstair-rounds-2').stage;
+    assert.deepEqual(active(6)?.deliveryReservation, {
+        target: 10, message: 'First Footing still needs 4 of these. Gather 4 more before you hand any in.',
+    });
+    assert.equal(active(6)?.need?.count, 6, 'the actual hand-in is still six');
+    assert.equal(active(10)?.deliveryReservation, undefined);
+    const other = line(views({ active: { ...stages, 'first-footing': { stage: 2, at: 1 } } }, hero([{ itemId: 'quest-wrack-cord', count: 6 }])), 'saltstair-rounds-2');
+    assert.equal(other.stage?.deliveryReservation, undefined, "future stages do not reserve the current backpack");
+});
+
 test('a recipe lists every input with what the player holds, and what it makes', () => {
     const make = line(views({ active: { 'shuttered-boat': { stage: 5, at: 1, took: true } } }, hero([{ itemId: 'gather-stormglass-shard', count: 1 }])), 'shuttered-boat');
     assert.equal(make.committed, true);

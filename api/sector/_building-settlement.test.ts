@@ -72,6 +72,33 @@ test('repair payout, protected receipt, shared stage and currency ledger commit 
     const ledger=await kv.get<Record<string,unknown>>('ledger:currency:builder');assert.ok(ledger,'payout must use the existing atomic currency commit');
 });
 
+test('two visitors share the Saltstair rack and replaying the last work step is free', async () => {
+    const { COAST_NET_RACK: rack } = await import('../../shared/sector-buildings.js');
+    const { readBuildingWorld } = await import('./_building-view.js');
+    const key = 'world:building:' + rack.id;
+    await kv.set(key, { version: 1, repairs: 3, revision: 3, cycleRepairs: 3, cycleAt: NOW });
+    const player = 'rackcrew';
+    const clean = { name: player, level: 85, ryo: 0, itemStacks: materials.flatMap(row =>
+        Object.entries(row).map(([itemId, count]) => ({ itemId, count }))) };
+    await kv.set('save:' + player, { _saveVersion: 1, character: clean });
+    await kv.set('save:rackvisitor', { _saveVersion: 1, character: { name: 'rackvisitor', level: 75 } });
+    const runStep = (action: BuildingAction, now: number) => withLock(key, () => withLock('save:' + player, () =>
+        settle(kv, player, action, { now, orderId: 'rack-order', presence: { ...presence(player), sector: rack.sector, tile: rack.approach, lastSeenAt: now } }),
+    { failClosed: true }), { failClosed: true });
+    const start = await runStep({ action: 'begin', buildingId: rack.id, service: 'repair', materials, requestId: 'rack-begin-materials' }, NOW);
+    assert.ok(start.ok, JSON.stringify(start));
+    for (let i = 0; i < 3; i++) {
+        const action: BuildingAction = { action: 'step', buildingId: rack.id, step: i, orderId: 'rack-order', requestId: 'rack-working-step-' + i };
+        assert.ok((await runStep(action, NOW + (i + 1) * 6000)).ok);
+        const retry = await runStep(action, NOW + (i + 1) * 6000);
+        assert.ok(retry.ok && retry.replayed);
+    }
+    const view = await readBuildingWorld(kv, 'rackvisitor', rack.sector, NOW + 18000);
+    assert.equal(view?.buildings[0].shared.stage, 1);
+    assert.equal(view?.buildings[0].shared.repairs, 4);
+    assert.equal(view?.buildings[0].standing.repairCount, 0);
+});
+
 test('a fresh request cannot reopen or repay a completed order after reload',async()=>{
     await kv.set('save:builder',prepared());assert.ok((await run(kv)).ok);
     const after=await kv.get('save:builder');

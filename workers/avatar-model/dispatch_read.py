@@ -5,7 +5,7 @@ import json
 import os
 import re
 import sys
-from dispatch_result import terminal_result_errors
+from dispatch_result import failure_detail, terminal_result_errors
 
 
 def advance(request, ledger, function, lookup, terminal_errors):
@@ -38,8 +38,8 @@ def advance(request, ledger, function, lookup, terminal_errors):
     handle = lookup(call)
     try:
         result = handle.get(timeout=0)
-    except terminal_errors:
-        return {"status": "failed"}
+    except terminal_errors as error:
+        return {"status": "failed", "detail": failure_detail(error)}
     except TimeoutError:
         return {"status": "pending"}
     receipt = result["receipt"]

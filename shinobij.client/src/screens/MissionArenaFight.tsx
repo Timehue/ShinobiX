@@ -710,6 +710,7 @@ export function MissionArenaFight({
         enemyMovementQueueRef.current = [];
     }, []);
     const biome = String(session.map.biome ?? "central");
+    const locationLabel = session.locationLabel ?? initialSession.locationLabel ?? biomeLabel(biome as Parameters<typeof biomeLabel>[0]);
     // The sky over this fight, for the ambient weather layer only: the sealed
     // environment (the +5% / −2% chips in the strip), or none. An authored story
     // backdrop shows no weather. Display-only — nothing here feeds combat math.
@@ -1451,7 +1452,7 @@ export function MissionArenaFight({
 
                 <CombatHudMain activeTab={tabs.tab}>
                     <CombatHudHeader
-                        title={biomeLabel(biome as Parameters<typeof biomeLabel>[0])}
+                        title={locationLabel}
                         subtitle={<>Round {session.round} | {eventLabel ?? 'Shinobi Duel'}</>}
                     />
 
@@ -1463,7 +1464,7 @@ export function MissionArenaFight({
                         {(encounterNotice || typeof enemy?.character?.tacticalTell === 'string') && <button type="button" id="encounter-details-trigger" aria-haspopup="dialog" aria-controls="encounter-details" aria-expanded={encounterDetailsOpen}
                             onClick={() => setEncounterDetailsOpen(true)} title={encounterNotice}>{encounterNotice ? 'Resumed encounter' : 'Opponent tells'}</button>}
                         {typeof enemy?.character?.pveDifficultyLabel === 'string' && <span className="encounter-difficulty" title={String(enemy.character.tacticalTell ?? '')}>{enemy.character.pveDifficultyLabel}</span>}
-                        <span className="twp-strip-biome">{biomeLabel(biome as Parameters<typeof biomeLabel>[0])}</span>
+                        <span className="twp-strip-biome">{locationLabel}</span>
                         <span className="twp-strip-sep">·</span>
                         <span className="twp-strip-label">Terrain</span>
                         {BIOME_SCHOOL[biome]

@@ -130,6 +130,49 @@ if modal.is_local():
     )
 
 
+STEP_TAIL_LINES = 25
+
+
+class StepFailed(subprocess.CalledProcessError):
+    """A worker step's non-zero exit, carrying the end of what it printed to stderr. Without it a failed job read
+    only "returned non-zero exit status 1" and its cause was lost once the app log rolled over (three failed jobs,
+    2026-11-17 to 11-21). It is still a CalledProcessError, so every returncode check below works unchanged."""
+    def __str__(self):
+        name = Path(str(self.cmd[1])).name if isinstance(self.cmd, (list, tuple)) and len(self.cmd) > 1 else "step"
+        tail = (self.stderr or "").strip()
+        return f"{name} exited {self.returncode}" + (":\n" + tail if tail else "")
+
+
+def run_step(command, *, check=True, stdout=None, timeout=None):
+    """subprocess.run that still streams the step's stderr into the container log as it runs, and keeps its last
+    lines for the exception a failure raises."""
+    import collections
+    import threading
+    tail = collections.deque(maxlen=STEP_TAIL_LINES)
+    process = subprocess.Popen(command, stdout=stdout, stderr=subprocess.PIPE, text=True, errors="replace")
+
+    def relay():
+        for line in process.stderr:
+            sys.stderr.write(line)
+            sys.stderr.flush()
+            tail.append(line.rstrip()[:300])
+    reader = threading.Thread(target=relay, daemon=True)
+    reader.start()
+    try:
+        output = process.stdout.read() if stdout == subprocess.PIPE else None
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+        raise
+    finally:
+        reader.join(10)
+    errors = "\n".join(tail)
+    if check and process.returncode:
+        raise StepFailed(process.returncode, command, output, errors)
+    return subprocess.CompletedProcess(command, process.returncode, output, errors)
+
+
 def read_private_upload(raw, expected_sha256, entry, paint_python, reader_python, frame_hash=None, *,
                         painted_costumes=False, stocky=False):
     if not isinstance(raw, bytes) or not 0 < len(raw) <= MAX_UPLOAD:
@@ -146,10 +189,10 @@ def read_private_upload(raw, expected_sha256, entry, paint_python, reader_python
             if proof.stdout.strip() != frame_hash:
                 return {"receipt": {"sourceSha256": expected_sha256, "declined": "frame-mismatch"}}
         master = work / "master"
-        subprocess.run([paint_python, entry.with_name("portrait_intake.py"), upload, master,
-                        "--source-sha256", expected_sha256, "--reader-python", reader_python,
-                        *(["--full-figure-equipment", "--portrait-bust"] if painted_costumes else [])],
-                       stdout=subprocess.DEVNULL, check=True)
+        run_step([paint_python, entry.with_name("portrait_intake.py"), upload, master,
+                  "--source-sha256", expected_sha256, "--reader-python", reader_python,
+                  *(["--full-figure-equipment", "--portrait-bust"] if painted_costumes else [])],
+                 stdout=subprocess.DEVNULL)
         receipt = json.loads((master / "read.json").read_bytes())
         declined = receipt["declined"]
         if painted_costumes and isinstance(declined, str):
@@ -159,9 +202,9 @@ def read_private_upload(raw, expected_sha256, entry, paint_python, reader_python
             # bipedal character, so the intake's narrower families are not the last word.
             animal_only = [] if declined == "portrait-bust-fit-uncertain" else ["--animal-only"]
             try:
-                subprocess.run([paint_python, INSTALL / "closeup_portrait.py", entry, upload, master,
-                                reader_python, expected_sha256, *animal_only, *(["--stocky"] if stocky else [])],
-                               stdout=subprocess.DEVNULL, check=True)
+                run_step([paint_python, INSTALL / "closeup_portrait.py", entry, upload, master,
+                          reader_python, expected_sha256, *animal_only, *(["--stocky"] if stocky else [])],
+                         stdout=subprocess.DEVNULL)
             except subprocess.CalledProcessError as error:
                 # An uncertain decline always went through this fallback, and its failure still fails
                 # the read. A decline that only reaches it since every bipedal character is screened
@@ -232,6 +275,13 @@ PAINT_TIMEOUT = 2400
 BATTLE_PAINT_ROOM = 1000
 # paint_admitted_costume.py REFUSED: the rig or the likeness check refused all three paintings of a round.
 PAINT_REFUSED = 3
+# The error a costume call raises when its paintings were refused, never a crash (dispatch_stage.py ends the job).
+COSTUME_REFUSED = "costume-refused"
+
+
+def paint_claim_key(asset, attempt):
+    """The costume-executions key of one paint attempt. Attempt 1 keeps the bare asset key every earlier job used."""
+    return asset if attempt == 1 else f"{asset}/attempt-{attempt}"
 # Start a second painting round only with this long left. A round takes about 4 minutes; three edits at their
 # 360 s timeout and the checks fit in 20. A combat painting that no longer fits is skipped and the posed model used.
 REPAINT_ROOM = 1200
@@ -324,19 +374,23 @@ if os.environ.get("SPRITE_PAINTED_COSTUMES") == "1":
     @app.function(image=gpu_image, gpu=GPUS, max_containers=PARALLEL_JOBS, min_containers=0, retries=0, timeout=PAINT_TIMEOUT,
                   secrets=[modal.Secret.from_name(openai_secret_name or "shinobix-avatar-costume-paint",
                                                   required_keys=["OPENAI_API_KEY"])])
-    def paint_costume(asset: str, descriptor: bytes, master: str, portrait: bytes, source: str):
+    def paint_costume(asset: str, descriptor: bytes, master: str, portrait: bytes, source: str, attempt: int = 1):
         import sys
         started = time.monotonic()
+        if type(attempt) is not int or attempt not in (1, 2):
+            raise ValueError("invalid-paint-attempt")
         sys.path.insert(0, str(INSTALL))
         from paint_admitted_costume import admitted_rig
         admitted_rig(asset, descriptor, master, portrait, source)
-        # Provider rescheduling after preemption must never replay a paid edit.
+        # Provider rescheduling after preemption must never replay a paid edit. The game retries a CRASHED painting
+        # once (attempt 2, owner 2026-11-25), as a new execution under its own claim; a refused one is never retried.
         claims = modal.Dict.from_name("shinobix-avatar-costume-executions", create_if_missing=True)
+        claim_key = paint_claim_key(asset, attempt)
         call_id = modal.current_function_call_id()
         if not isinstance(call_id, str) or not re.fullmatch(r"fc-[A-Za-z0-9]{1,100}", call_id):
             raise ValueError("paint-call-id-unavailable")
         claim = {"master": master, "portrait": source, "callId": call_id}
-        if not claims.put(asset, claim, skip_if_exists=True):
+        if not claims.put(claim_key, claim, skip_if_exists=True):
             raise ValueError("paint-execution-already-claimed")
         entry = Path((INSTALL/"entry.txt").read_text().strip())
         with TemporaryDirectory() as directory:
@@ -349,14 +403,21 @@ if os.environ.get("SPRITE_PAINTED_COSTUMES") == "1":
                        entry,work,INSTALL/"reader/bin/python",asset,master,source]
             try:
                 try:
-                    subprocess.run(command,check=True)
+                    try:
+                        run_step(command)
+                    except subprocess.CalledProcessError as error:
+                        # All three paintings of the first round were refused (Nero, 2026-11-21: the same leg three
+                        # times, which ended a model at the first step). Paint one fresh round while there is time.
+                        if error.returncode != PAINT_REFUSED or PAINT_TIMEOUT-(time.monotonic()-started) < REPAINT_ROOM:
+                            raise
+                        print("costume-repaint round 2", flush=True)
+                        run_step(command+["--round","2"])
                 except subprocess.CalledProcessError as error:
-                    # All three paintings of the first round were refused (Nero, 2026-11-21: the same leg three
-                    # times, which ended a model at the first step). Paint one fresh round while there is time.
-                    if error.returncode != PAINT_REFUSED or PAINT_TIMEOUT-(time.monotonic()-started) < REPAINT_ROOM:
-                        raise
-                    print("costume-repaint round 2", flush=True)
-                    subprocess.run(command+["--round","2"],check=True)
+                    # Refused paintings are the portrait's verdict, not a crash: say so, so the game ends the job
+                    # instead of retrying it and paying for more rounds of the same refusal.
+                    if error.returncode == PAINT_REFUSED:
+                        raise ValueError(COSTUME_REFUSED) from error
+                    raise
                 receipt = json.loads((out/"read.json").read_bytes())
                 if animal_portrait(descriptor):
                     record_painted_legs(asset, receipt["fittedMasterSha256"])
@@ -369,7 +430,7 @@ if os.environ.get("SPRITE_PAINTED_COSTUMES") == "1":
                         if report.is_file():
                             record = json.loads(report.read_bytes())
                             edits.append({k: record[k] for k in ("operation","requestId","model","size","quality","usage")})
-                claims.put(asset, {**claim, "edits": edits + battle})
+                claims.put(claim_key, {**claim, "edits": edits + battle})
             return {"assetId":asset,"screened":master,"receipt":receipt,
                     "descriptor":(out/"fitted-master.json").read_bytes(),"sheet":(out/"candidate.png").read_bytes()}
 
@@ -473,10 +534,11 @@ def render_style(descriptor: bytes, sheet: bytes, master_sha256: str, style: str
             command.extend(["--battle-sprite", work / "painted-battle.webp"])
         if owner and painted_legs(owner, master_sha256):
             command.append("--painted-legs")
-        render = subprocess.run(command)
+        render = run_step(command, check=False)
         if render.returncode == 78:
             raise ValueError("movement-worker-revision-mismatch")
-        render.check_returncode()
+        if render.returncode:
+            raise StepFailed(render.returncode, command, None, render.stderr)
         receipt = json.loads((work / "style.json").read_bytes())
         archive = (work / "style.zip").read_bytes()
         if (receipt["style"] != style or receipt["master"] != master_sha256 or
@@ -516,10 +578,10 @@ def deliver(asset_id, descriptor, master_sha256, *, styles=None, archive=None, a
                 (work / (style + ".zip")).write_bytes(stage["archive"])
             source = ["--from-styles", work]
         content = work / "content"
-        result = subprocess.run(
+        result = run_step(
             [INSTALL / "paint/bin/python", INSTALL / "finish_sprite.py", entry, metadata, motion,
              content, "--master-sha256", master_sha256, "--asset-id", asset_id, *source],
-            check=True, stdout=subprocess.PIPE,
+            stdout=subprocess.PIPE,
         )
         delivery = json.loads(result.stdout)
         if delivery["assetId"] != asset_id or not re.fullmatch("[0-9a-f]{64}", delivery["version"]):
@@ -574,3 +636,97 @@ def finish_styles(asset_id: str, descriptor: bytes, master_sha256: str, styles: 
         # The combat sprite now travels in the style A result. Drop the waiting copy.
         forget_battle_sprite(asset_id)
     return delivery
+
+
+# Health checks, run once by the deploy script (smoke_read.py) right after `modal deploy`, one per image: a
+# deploy whose image lacks a file, an interpreter, a package or a secret its real functions need is rolled back
+# before a player's job reaches it. Each runs on a small CPU machine, starts nothing paid and reads no player data.
+# Imports go through the same sys.path.insert(INSTALL) the real functions use (test_paint_step_errors.py guards that).
+def health(checks):
+    failures = []
+    for name, check in checks:
+        try:
+            if check() is False:
+                failures.append(name)
+        except Exception as error:  # noqa: BLE001
+            failures.append(f"{name}: {type(error).__name__}: {str(error)[-300:]}")
+    return {"ok": not failures, "failures": failures}
+
+
+def installed(*names):
+    return lambda: all((INSTALL / name).exists() for name in names)
+
+
+def runs(*command):
+    return lambda: run_step([str(part) for part in command], stdout=subprocess.DEVNULL, timeout=240).returncode == 0
+
+
+def entry_files(*names):
+    def check():
+        entry = Path((INSTALL / "entry.txt").read_text().strip())
+        return entry.is_file() and all(entry.with_name(name).is_file() for name in names)
+    return check
+
+
+def imports_from_install(*modules):
+    def check():
+        sys.path.insert(0, str(INSTALL))
+        for module in modules:
+            __import__(module)
+    return check
+
+
+def has_env(*names):
+    return lambda: all(os.environ.get(name, "").strip() for name in names)
+
+
+@app.function(image=gpu_image, cpu=1, memory=4096, max_containers=1, min_containers=0, timeout=300, retries=0,
+              secrets=[modal.Secret.from_name(openai_secret_name or "shinobix-avatar-costume-paint",
+                                              required_keys=["OPENAI_API_KEY"])]
+              if os.environ.get("SPRITE_PAINTED_COSTUMES") == "1" else [])
+def health_reader():
+    """read_portrait and paint_costume's image."""
+    painted = os.environ.get("SPRITE_PAINTED_COSTUMES") == "1"
+    return health([
+        ("release", installed("sprite-worker-release.json", "verify_moderated_frame.py", "paint/bin/python", "reader/bin/python")),
+        ("intake", entry_files("portrait_intake.py")),
+        ("reader-packages", runs(INSTALL / "reader/bin/python", "-c", "import torch, transformers")),
+        ("paint-packages", runs(INSTALL / "paint/bin/python", "-c", "import cv2, mediapipe, PIL, numpy")),
+        *([("painted-modules", imports_from_install("animal_build", "paint_admitted_costume")),
+           ("painted-files", installed("paint_admitted_costume.py", "closeup_portrait.py", "paint_battle_sprite.py",
+                                       "sector-costume-light.png", "battle-stance-reference.png")),
+           ("openai-key", has_env("OPENAI_API_KEY"))] if painted else []),
+    ])
+
+
+@app.function(image=paint_image, cpu=1, memory=4096, max_containers=1, min_containers=0, timeout=300, retries=0)
+def health_render():
+    """render_style's image."""
+    return health([
+        ("files", installed("paint_sprite_style.py", "paint/bin/python", "blender/blender")),
+        ("entry", entry_files()),
+        ("blender", runs(INSTALL / "blender/blender", "--background", "--factory-startup", "--version")),
+        ("paint-packages", runs(INSTALL / "paint/bin/python", "-c", "import cv2, mediapipe, imageio_ffmpeg")),
+    ])
+
+
+@app.function(image=cpu_image, cpu=1, memory=2048, max_containers=1, min_containers=0, timeout=300, retries=0)
+def health_finish():
+    """finish_sprite and finish_styles's image."""
+    return health([
+        ("files", installed("finish_sprite.py", "paint/bin/python")),
+        ("entry", entry_files()),
+        ("modules", imports_from_install("browser_motion")),
+    ])
+
+
+@app.function(image=recognition_image, cpu=1, memory=2048, max_containers=1, min_containers=0, timeout=300,
+              retries=0, secrets=recognition_secrets)
+def health_recognition():
+    """recognize_sprite's image."""
+    return health([
+        ("files", installed("recognition-pool.zip", "paint/bin/python")),
+        ("modules", imports_from_install("recognition_worker")),
+        ("release", has_env("SPRITE_RECOGNITION_MODEL", "SPRITE_RECOGNITION_POOL_SHA256", "OPENAI_API_KEY",
+                            *recognition_keys)),
+    ])

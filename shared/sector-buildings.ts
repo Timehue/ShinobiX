@@ -142,9 +142,16 @@ function restorationSite(building:SectorBuilding):SectorBuilding['restorationSit
 export const SECTOR_BUILDINGS: readonly SectorBuilding[] = architecture.map(building=>({...building,
     art:building.art==='teahouse'&&building.region==='frostfang'?'teahouse-winter':building.art,
     restorationSite:restorationSite(building)}));
-const byId = new Map(SECTOR_BUILDINGS.map(building => [building.id, building]));
+export const COAST_NET_RACK: SectorBuilding = {
+    id: 'saltstair-net-rack', sector: 101, name: 'Saltstair net rack', keeper: 'Slip boatwright', role: 'Net-rack crew',
+    kind: 'ruin', region: 'saltstair', services: ['repair'], art: 'workshop',
+    description: 'Help brace the posts and hang the nets. Find binding fibre at Wrack Strand (102), ore at Splitstone Seam (103), and fish at Needle Shoal (104).',
+    left: 49, top: 74, width: 10, height: 10, footprint: [101], approach: 102,
+};
+export const ALL_SECTOR_BUILDINGS = [...SECTOR_BUILDINGS, COAST_NET_RACK];
+const byId = new Map(ALL_SECTOR_BUILDINGS.map(building => [building.id, building]));
 export const sectorBuilding = (id: unknown): SectorBuilding | undefined => typeof id === 'string' ? byId.get(id) : undefined;
-export const buildingsInSector = (sector: number): readonly SectorBuilding[] => SECTOR_BUILDINGS.filter(building => building.sector === sector);
+export const buildingsInSector = (sector: number): readonly SectorBuilding[] => ALL_SECTOR_BUILDINGS.filter(building => building.sector === sector);
 export const buildingHasService = (building: SectorBuilding, service: BuildingService) => building.services.includes(service);
 /** Tiles a standing road-place building makes solid (`B`) in a sector's floor mask.
  * Every other `B` tile in a non-village sector belongs to a painted site. */

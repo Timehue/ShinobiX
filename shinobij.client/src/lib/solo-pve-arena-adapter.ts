@@ -169,8 +169,10 @@ export function soloPveBeatStream(session: SoloPveSession): ServerArenaBeat[] {
 export function soloPveSessionForArena(session: SoloPveSession): ServerArenaSession {
     const companion = companionActor(session);
     const roundLimit = hollowGateShinobiRoundLimit(session);
+    const locationLabel = session.encounter.metadata?.locationLabel;
     return {
         sessionId: session.sessionId,
+        ...(typeof locationLabel === "string" && locationLabel ? { locationLabel } : {}),
         hollowGateTelegraph: session.hollowGateTelegraph,
         hollowGateRoundLimit: roundLimit,
         ...(session.bossForms ? { bossForms: session.bossForms } : {}),

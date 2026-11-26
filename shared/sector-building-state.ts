@@ -1,4 +1,4 @@
-import { SECTOR_BUILDINGS, sectorBuilding } from './sector-buildings.js';
+import { ALL_SECTOR_BUILDINGS, sectorBuilding } from './sector-buildings.js';
 import type { BuildingReceipt, BuildingStanding, BuildingWorkOrder, SectorBuildingProgress, SharedBuildingState } from './sector-building-types.js';
 
 import { BUILDING_DELIVERY_DAILY_CAP, BUILDING_RECEIPT_LIMIT, BUILDING_RESTORATION_TARGETS, BUILDING_RUIN_BATTLE_DAMAGE, BUILDING_RUIN_IDLE_FADE_MS, BUILDING_RUIN_INTACT_MS } from './sector-building-rules.js';
@@ -16,7 +16,7 @@ const text = (value: unknown, max = 160) => typeof value === 'string' ? value.sl
 /** Generic saves cannot write this state. Parsing also bounds legacy/corrupt stored rows. */
 export function readBuildingProgress(value: unknown, now: number): SectorBuildingProgress {
     const raw = object(value), day = buildingDay(now), standing: Record<string, BuildingStanding> = {};
-    for (const building of SECTOR_BUILDINGS) {
+    for (const building of ALL_SECTOR_BUILDINGS) {
         const entry = object(object(raw.standing)[building.id]); if (!Object.keys(entry).length) continue;
         const survey = object(entry.survey);
         standing[building.id] = { metAt: buildingWhole(entry.metAt, Number.MAX_SAFE_INTEGER), trust: buildingWhole(entry.trust, 100),

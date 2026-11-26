@@ -1,5 +1,6 @@
 import { authedPlayer } from '../_auth.js';
 import { kv } from '../_storage.js';
+import { safeLogValue } from '../_safe-log.js';
 import { cors, safeName } from '../_utils.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import type { ApiRequest, ApiResponse } from '../_vercel.js';
@@ -33,6 +34,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
             let detail;
             if (!process.env.AVATAR_MODEL_R2_SECRET_ACCESS_KEY) throw new Error('Private portrait storage unavailable');
             try { detail = await prepareProfileDetail(owner,req.body?.image); }
+            // Its only failures are an upload it cannot accept (the storage key is checked just above): the player's 400.
             catch { return res.status(400).json({error:'invalid-portrait'}); }
             const portrait = detail;
             req.body = {id:'avatar:'+alias,image:portrait.image};
@@ -41,5 +43,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
                 await stageProfileDetail(owner,current.decoded ? profileDigest(current.decoded.buf) : null,portrait);
             });
         });
-    } catch { return res.status(503).json({error:'unavailable'}); }
+    } catch (error) {
+        console.error('[avatar-model/profile-portrait]', safeLogValue(error));
+        return res.status(503).json({error:'unavailable'});
+    }
 }

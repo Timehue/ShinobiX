@@ -93,6 +93,160 @@ async function seed(playerName: string, character: Record<string, unknown> = {})
 const stand = (playerName: string, sector: number, tile: number) => onlineStore.upsert({ name: playerName, sector, tile, character: null });
 
 describe('quest lines route', () => {
+    it('pays each building from its own stock once, even for competing hand-ins, and resumes from the save', async () => {
+        const { roomDuties } = await import('../../shared/coast-room-duties.js');
+        const { coastSite } = await import('../../shared/coast-world.js');
+        const { countOwned } = await import('../craft/_forge.js');
+        for (const [index, [id, duty]] of Object.entries(roomDuties).entries()) {
+            assert.ok(duty);
+            const player = PREFIX + 'room' + index;
+            const site = coastSite(id)!;
+            await seed(player, { maxHp: 1000, hp: 100, maxStamina: 100, stamina: 10, maxChakra: 100, chakra: 15 });
+            const job = (command: string, extra = {}) => call(player, { action: 'room-duty', questId: id, command, ...extra });
+            assert.equal((await job('take', { tick: 0 })).statusCode, 409);
+            stand(player, site.sector, site.approach);
+            assert.deepEqual((await job('take', { tick: 0 })).body?.progress, { tick: 1 });
+            assert.equal((await job('deliver', { tick: 1, station: duty.operate })).statusCode, 409);
+            assert.equal((await job('inspect', { tick: 1, station: duty.operate })).statusCode, 409);
+            assert.deepEqual((await job('inspect', { tick: 1, station: duty.inspect })).body?.progress, { tick: 2 });
+            assert.deepEqual((await job('sync')).body?.progress, { tick: 2 });
+            const handIn = (answer: string | number) => job('deliver', { tick: 2, station: duty.operate, answer, quantity: 99999, item: 'fake' });
+            assert.equal((await handIn('wrong')).statusCode, 409);
+            const samples: Record<string, [string | number, string][]> = {
+                'saltstair-dock-101': [[0, 'Add a shim'], [3, 'Plane off a shaving']],
+                'saltstair-houses-105': [[0, 'Stir in plain stock'], [-3, 'Add brine']],
+                'hushcrown-fort-148': [['Hold Hold Flash', 'first beat'], ['Flash Flash Hold', 'second beat'], ['Flash Hold Hold', 'third beat']],
+            };
+            for (const [sample, hint] of samples[id] ?? []) {
+                const miss = await handIn(sample);
+                assert.equal(miss.statusCode, 409);
+                assert.ok(String(miss.body?.error).includes(hint), hint);
+            }
+            const answer = id === 'saltstair-dock-101' ? 2 : id === 'saltstair-houses-105' ? -2 :
+                id === 'hushcrown-fort-148' ? 'Flash Hold Flash' : duty.cases[0].action;
+            const replies = await Promise.all([handIn(answer), handIn(answer)]);
+            assert.ok(replies.some(response => response.statusCode === 200 && response.body?.ok));
+            const after = await kv.get<{ character: Record<string, unknown> }>('save:' + player);
+            assert.equal(countOwned(after!.character, duty.reward.item), duty.reward.quantity);
+            const replay = await handIn(answer);
+            assert.deepEqual(replay.body?.progress, { tick: 3, paidTick: 3 });
+            const char = replay.body?.character as Record<string, unknown>;
+            assert.equal(countOwned(char, duty.reward.item), duty.reward.quantity);
+            assert.equal(countOwned(char, 'fake'), 0);
+            assert.equal(char.ryo, 1000);
+            if (duty.reward.meal) assert.deepEqual([char.hp, char.chakra, char.stamina], [200, 25, 20]);
+            assert.deepEqual((await job('sync')).body?.progress, { tick: 3, paidTick: 3 });
+            assert.deepEqual((await job('take', { tick: 3 })).body?.progress, { tick: 5, order: 1 });
+            assert.deepEqual((await handIn(answer)).body?.progress, { tick: 5, order: 1 });
+        }
+    });
+    it('imports both old notes and in-flight readings without paying or overwriting character work', async () => {
+        const player = PREFIX + 'oldbook', dock = 'saltstair-dock-101', kitchen = 'saltstair-houses-105';
+        await seed(player);
+        const sync = (site: string, legacy?: Record<string, number>) => call(player, { action: 'room-duty', command: 'sync', questId: site, legacy });
+        const imported = await sync(dock, { [dock]: 7, [kitchen]: 2, fake: 99 });
+        assert.deepEqual(imported.body?.progress, { tick: 7 });
+        assert.deepEqual((imported.body?.character as Record<string, unknown>).itemStacks, []);
+        assert.deepEqual((await sync(kitchen)).body?.progress, { tick: 2 });
+        const stale = await sync(dock, { [dock]: 33 });
+        assert.deepEqual(stale.body?.progress, { tick: 7 });
+        assert.equal(stale.body?._saveVersion, imported.body?._saveVersion);
+        assert.equal((await sync('constructor')).statusCode, 400);
+    });
+    it('rotates three payable orders at every building and keeps the previous result during the next shift', async () => {
+        const { roomDuties, dutyAnswer } = await import('../../shared/coast-room-duties.js');
+        const { coastSite } = await import('../../shared/coast-world.js');
+        const { countOwned } = await import('../craft/_forge.js');
+        for (const [i, [id, duty]] of Object.entries(roomDuties).entries()) {
+            assert.ok(duty);
+            const player = PREFIX + 'shift' + i, site = coastSite(id)!;
+            await seed(player);
+            const job = (command: string, tick: number, extra = {}) => call(player, { action: 'room-duty', questId: id, command, tick, ...extra });
+            let tick = 0;
+            for (const [index, card] of duty.cases.entries()) {
+                stand(player, site.sector, site.approach);
+                const taken = await job('take', tick);
+                tick = index * 4 + 1;
+                assert.equal((taken.body?.progress as { tick: number }).tick, tick);
+                if (index > 0) {
+                    const list = await call(player, { action: 'list' });
+                    const book = list.body?.notebook as Record<string, { result: string; active: boolean }>;
+                    assert.deepEqual(book[id], { active: true, result: duty.cases[index - 1].result });
+                }
+                assert.equal((await job('inspect', tick++, { station: duty.inspect })).statusCode, 200);
+                const answer = dutyAnswer(card);
+                const adjustments = typeof answer === 'number'
+                    ? Array.from({ length: Math.abs(answer) }, (_, step) => Math.sign(answer) * (step + 1))
+                    : card.fitting ? [card.fitting[0], answer]
+                    : card.answer ? answer.split(' ').map((_, end, pulses) => pulses.slice(0, end + 1).join(' ')) : [];
+                for (const [revision, value] of adjustments.entries()) {
+                    assert.equal((await job('adjust', tick, { revision, station: duty.operate, answer: value })).statusCode, 200);
+                }
+                const paid = await job('deliver', tick++, { revision: adjustments.length, station: duty.operate, answer });
+                assert.equal(paid.statusCode, 200, JSON.stringify(paid.body));
+                assert.equal(countOwned(paid.body?.character as Record<string, unknown>, duty.reward.item), duty.reward.quantity * (index + 1));
+            }
+            const again = await job('take', tick);
+            assert.equal((again.body?.progress as { order: number }).order, 0);
+        }
+    });
+    it('resumes bench edits, rejects stale changes from another device and clears the bench for a fresh order', async () => {
+        const site = 'saltstair-dock-101', player = PREFIX + 'shims';
+        const job = (command: string, extra = {}) => call(player, { action: 'room-duty', questId: site, command, ...extra });
+        await seed(player);
+        stand(player, 101, 123);
+        await job('sync', { legacy: { [site]: 10 } }); // Third old shift still has its original two-shim reading.
+        const edit = (answer: number, revision: number) => job('adjust', { tick: 10, revision, answer, station: 'Joiner’s bench' });
+        assert.equal((await edit(4, 0)).statusCode, 400);
+        assert.equal((await edit(2, 0)).statusCode, 409);
+        assert.equal((await job('deliver', { tick: 10, revision: 0, station: 'Joiner’s bench', answer: 2 })).statusCode, 409);
+        await edit(1, 0);
+        const saved = (await job('sync')).body?.progress;
+        assert.deepEqual(saved, { tick: 10, bench: { tick: 10, revision: 1, value: 1 } });
+        assert.equal((await job('deliver', { tick: 10, station: 'Joiner’s bench', answer: 2 })).statusCode, 409);
+        assert.deepEqual((await job('sync')).body?.progress, saved);
+        assert.deepEqual((await edit(-1, 0)).body?.progress, saved);
+        assert.deepEqual((await job('deliver', { tick: 10, station: 'Joiner’s bench', answer: 2, revision: 0 })).body?.progress, saved);
+        await edit(2, 1);
+        await job('deliver', { tick: 10, station: 'Joiner’s bench', answer: 2, revision: 2 });
+        await job('take', { tick: 11 });
+        assert.deepEqual((await job('inspect', { tick: 13, station: 'Ferry frame' })).body?.progress, { tick: 14, order: 1 });
+    });
+    it('keeps the latest public watch after another worker reopens an earlier receipt', async () => {
+        const site = 'brackwater-counter-118', key = 'world:coast-watch:' + site;
+        const a = PREFIX + 'watcha', b = PREFIX + 'watchb';
+        for (const player of [a, b]) {
+            await seed(player);
+            stand(player, 118, 63);
+            await call(player, { action: 'room-duty', command: 'sync', questId: site, legacy: { [site]: player === a ? 2 : 6 } });
+        }
+        const deliver = (player: string, tick: number, answer: string) => call(player, {
+            action: 'room-duty', command: 'deliver', questId: site, station: 'Signal reel', tick, answer,
+        });
+        assert.equal((await deliver(a, 2, 'Hoist one pennant')).statusCode, 200);
+        assert.deepEqual(await kv.get(key), { order: 0 });
+        assert.equal((await deliver(b, 6, 'Cross the pennants')).statusCode, 200);
+        await deliver(a, 2, 'Hoist one pennant');
+        assert.deepEqual(await kv.get(key), { order: 1 });
+    });
+    it('keeps coastal work personal, position-checked and replayable after losing a reply', async () => {
+        const { COAST_JOBS } = await import('../../shared/coast-work.js');
+        for (const [n, job] of COAST_JOBS.entries()) {
+            const player = PREFIX + 'work' + n;
+            await seed(player);
+            const work = (step: number, choice = 'work') => call(player, { action: 'work', questId: job.id, step, choice });
+            stand(player, 2, 12);
+            assert.equal((await work(0)).statusCode, 409);
+            for (const [i, step] of job.steps.entries()) {
+                onlineStore.remove(player);
+                stand(player, step.sector, step.tile);
+                if (step.alternative) assert.equal((await work(i, 'inspect')).statusCode, 409);
+                assert.deepEqual((await work(i)).body?.coastWork, { [job.id]: i + 1 });
+                assert.deepEqual((await work(i)).body?.coastWork, { [job.id]: i + 1 });
+            }
+            assert.deepEqual((await call(player, { action: 'list' })).body?.coastWork, { [job.id]: job.steps.length });
+        }
+    });
     it('refuses a caller acting for someone else, an unknown action and an unknown quest', async () => {
         const player = `${PREFIX}auth`;
         await seed(player);

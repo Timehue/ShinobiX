@@ -1824,6 +1824,23 @@ jobs:
           python -m unittest discover -s workers/avatar-model/tests -p 'test_paint_*.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/paint-tests.log
           python -m unittest discover -s workers/avatar-model/tests -p 'test_dispatch_result.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/recovery-tests.log
           python -m unittest discover -s workers/avatar-model/tests -p 'test_roster_release.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/roster-release-tests.log
+      - name: Verify dispatch staging, sprite finishing and portrait gates without hosted calls
+        env:
+          OPENAI_API_KEY: ''
+          # test_motion_delivery and test_fitted_motion_checkpoint import avatar_worker without adding the worker folder to sys.path.
+          PYTHONPATH: workers/avatar-model
+        run: |
+          python -m unittest discover -s workers/avatar-model/tests -p 'test_dispatch_read.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/dispatch-read-tests.log
+          python -m unittest discover -s workers/avatar-model/tests -p 'test_dispatch_stage.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/dispatch-stage-tests.log
+          python -m unittest discover -s workers/avatar-model/tests -p 'test_finish_sprite.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/finish-sprite-tests.log
+          python -m unittest discover -s workers/avatar-model/tests -p 'test_install_sprite_worker.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/install-sprite-worker-tests.log
+          python -m unittest discover -s workers/avatar-model/tests -p 'test_style_revision.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/style-revision-tests.log
+          python -m unittest discover -s workers/avatar-model/tests -p 'test_motion_delivery.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/motion-delivery-tests.log
+          python -m unittest discover -s workers/avatar-model/tests -p 'test_fitted_motion_checkpoint.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/fitted-motion-checkpoint-tests.log
+          python -m unittest discover -s workers/avatar-model/tests -p 'test_costume_palette.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/costume-palette-tests.log
+          python -m unittest discover -s workers/avatar-model/tests -p 'test_closeup_portrait.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/closeup-portrait-tests.log
+          python -m unittest discover -s workers/avatar-model/tests -p 'test_upright_animal.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/upright-animal-tests.log
+          python -m unittest discover -s workers/avatar-model/tests -p 'test_armored_raccoon.py' -v 2>&1 | tee .ci-evidence/avatar-recognition/armored-raccoon-tests.log
       - name: Retain recognition test results
         if: always()
         continue-on-error: true

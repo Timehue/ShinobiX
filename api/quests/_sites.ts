@@ -60,6 +60,19 @@ export function questSiteWorkable(node: ResourceNode): boolean {
     return !!mask && questSiteNode(node.id)?.approach === node.approach && coastTileWalkable(mask, node.approach);
 }
 
+/** The current Rounds II cord errand, never another use of this shared site. */
+export function saltstairCordBatch(save: Record<string, unknown>, character: Record<string, unknown>, siteId: string | undefined, mode: unknown): { stageAt: number; count: number } | undefined {
+    if (siteId !== 'saltstair-harvest-102' || mode !== 'relaxed') return undefined;
+    const questId = 'saltstair-rounds-2';
+    const active = parseQuestLines(save.questLines).active[questId];
+    if (!active) return undefined;
+    const stage = activeQuestCatalogue().lines[questId]?.stages[active.stage];
+    if (stage?.kind !== 'gather' || stage.key !== 'gather-1' || stage.itemId !== 'quest-wrack-cord'
+        || stage.count !== 6 || !stage.siteIds.includes(siteId)) return undefined;
+    const count = Math.min(2, stage.count - countOwned(character, stage.itemId));
+    return count > 0 ? { stageAt: active.at, count } : undefined;
+}
+
 /**
  * Why this player may not work a quest site, as a sentence they can read, or
  * null when they may. Read from the stored save: the client never says which

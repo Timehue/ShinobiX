@@ -128,6 +128,9 @@ for (const name of readdirSync(join(SOURCE, 'boats')).filter(file => file.endsWi
     await admit(`boats/${name}`, join(SOURCE, 'boats', name));
 }
 
+// The working skiff ships from the reviewed WebP in public.
+await admit('boats/reedwatch-skiff-v1.webp', join(PUBLIC_DIR, 'boats/reedwatch-skiff-v1.webp'));
+
 const states: { kind: 'pin' | 'stand' | 'scene'; file: string }[] = JSON.parse(readFileSync(join(ROOT, 'shinobij.client/art-source/coast-states-v1/paintings.json'), 'utf8'));
 for (const state of states) {
     const ref = state.file.slice('coast-map/'.length);
@@ -155,7 +158,7 @@ for (const file of readdirSync(PUBLIC_DIR, { recursive: true, withFileTypes: tru
 }
 for (const { from, to } of pending) {
     mkdirSync(dirname(to), { recursive: true });
-    copyFileSync(from, to);
+    if (from !== to) copyFileSync(from, to);
 }
 const total = (entries: Record<string, Entry>) => Object.values(entries).reduce((sum, entry) => sum + entry.bytes, 0);
 const sortedFiles = Object.fromEntries(Object.keys(files).sort().map(ref => [ref, files[ref]]));

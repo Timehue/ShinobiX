@@ -22,7 +22,7 @@ import { applyWorldBossCrystalHarvest, worldBossCrystalCanBeMined } from '../wor
 import { readActiveWorldBossEvent } from '../world-boss-event/_event.js';
 import { rememberMinedGround } from './_harvest-ground.js';
 import { questSite } from '../../shared/quest-sites.js';
-import { gatherNode, questSiteRefusal } from '../quests/_sites.js';
+import { gatherNode, questSiteRefusal, saltstairCordBatch } from '../quests/_sites.js';
 import { resourceBattleActive } from './_resource-battle.js';
 import { legacyActivityCommit } from '../_legacy-activity-commit.js';
 import { withPlayerResourceNodes, reserveSharedResourceNode, finishSharedResourceAdmission,
@@ -63,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         // Gathering is done on the open sector: starting it from inside a clan's town ends the visit.
         if (action === 'start') stepOutForFieldAction(identity.name);
-        const poolEnabled = villageStoresEnabled() && !site;
+        const poolEnabled = villageStoresEnabled() && !site && !node?.id.startsWith('coast-resource-');
         const owner = action === 'start' && node && poolEnabled ? await loadSectorPoolOwner(node.sector) : { ownerVillage: undefined };
         const requestJournal = id ? await kv.get<EconomyTxRecord>(economyTxKey(resourceTxId(identity.name, id))) : null;
         const requestSeal = requestJournal?.meta?.seal as ResourceSeal | undefined;
@@ -136,7 +136,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     : { ok: false, status: 409, error: 'Finish gathering first, then equip an owned, usable tool.' };
             }
             if (action === 'resolve' || action === 'cancel') {
-                const resolved = resolveResourceAttempt(current, id, { cancel: action === 'cancel' || claimLost, placements: body.placements, events: body.events }, onlineStore.get(identity.name), Date.now(), activeSeal);
+                const batch = typeof activeSeal?.saltstairCordStageAt === 'number'
+                    ? saltstairCordBatch(record, current, activeSeal.nodeId, activeSeal.mode) : undefined;
+                const batchCount = batch && batch.stageAt === activeSeal?.saltstairCordStageAt ? batch.count : 0;
+                const resolved = resolveResourceAttempt(current, id, { cancel: action === 'cancel' || claimLost, placements: body.placements, events: body.events }, onlineStore.get(identity.name), Date.now(), activeSeal, batchCount);
                 if (!resolved.ok) return { ok: false, status: 409, error: resolved.error };
                 if (resolved.replayed && activeSeal?.id === id) await finishReceipt(resolved.receipt, resolved.character);
                 const legacyCredit = !resolved.replayed && resolved.receipt.outcome === 'success'
@@ -181,11 +184,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 worldBossEventId = (await readActiveWorldBossEvent())?.eventId;
                 if (!worldBossEventId) return { ok: false, status: 409, error: 'The world event has closed.' };
             }
+            const batch = saltstairCordBatch(record, current, offered.id, body.mode);
             journal = await reserveEconomyTx({ id: txId, kind: 'resource-gathering', debitKey: sectorPoolKey(node.sector, now),
                 creditKey: `save:${identity.name}`, resource: 'explores', amount: 1,
                 meta: { fingerprint, nodeId: node.id, playerName: identity.name, poolEnabled,
                     seal: { ...mintResourceSeal(current, offered, id, body.mode as 'active' | 'relaxed', player, now, body.miningGameVersion === 2),
                         ...(site ? {} : { sharedNode: true as const }),
+                        ...(batch ? { saltstairCordStageAt: batch.stageAt } : {}),
                         ...(worldBossEventId ? { worldBossEventId } : {}) } } });
             if (journal.meta?.fingerprint !== fingerprint) return { ok: false, status: 409, error: 'This attempt ID was already used for another action.' };
             if (journal.state === 'complete' || journal.state === 'refunded') return { ok: false, status: 409, error: 'This attempt has already closed. Choose the node again to start another.' };
