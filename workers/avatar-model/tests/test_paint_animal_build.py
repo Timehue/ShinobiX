@@ -209,6 +209,8 @@ class LegBuildTest(unittest.TestCase):
             stack.enter_context(patch.object(modal, "current_function_call_id", return_value="fc-first"))
             stack.enter_context(patch.object(service, "paint_battle_sprite", return_value=[]))
             stack.enter_context(patch.object(subprocess, "run", side_effect=run))
+            # The costume painting runs through run_step (it keeps the step's stderr for a failure's message).
+            stack.enter_context(patch.object(service, "run_step", side_effect=lambda command, **_: run(command, check=True)))
             service.paint_costume.local(asset, metadata, sha256(metadata).hexdigest(), portrait, source)
             return (service.painted_legs(asset, painted), service.painted_legs(asset, "d" * 64),
                     stores.get(service.LEG_BUILDS, {}))

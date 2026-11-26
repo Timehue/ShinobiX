@@ -5,7 +5,16 @@ import json
 import os
 import re
 import sys
-from dispatch_result import terminal_result_errors
+from dispatch_result import failure_detail, terminal_result_errors
+
+
+# modal_sprite_worker.COSTUME_REFUSED and paint_claim_key, without importing the worker (test_dispatch_stage.py
+# checks they agree). A crashed painting is retried once as attempt 2 (owner, 2026-11-25); a refused one never is.
+COSTUME_REFUSED = "costume-refused"
+
+
+def paint_claim_key(asset, attempt):
+    return asset if attempt == 1 else f"{asset}/attempt-{attempt}"
 
 
 def advance(request, ledger, function, lookup, terminal_errors=(), paint_claim=None):
@@ -19,7 +28,7 @@ def advance(request, ledger, function, lookup, terminal_errors=(), paint_claim=N
     attempt = request["attempt"]
     # Five attempts (api/avatar-model/_dispatch.ts MAX_ATTEMPTS): a style retry plus a full rebuild of the
     # three styles after a failed assembly must not use up a job (owner, 2026-11-20).
-    if type(attempt) is not int or not 1 <= attempt <= 5 or (stage == "paint" and attempt != 1):
+    if type(attempt) is not int or not 1 <= attempt <= 5 or (stage == "paint" and attempt not in (1, 2)):
         raise ValueError("invalid-attempt")
     key = f"{asset}/{master}/{stage}/{attempt}"
     call_id = request.get("callId") or ledger.get(key)
@@ -32,7 +41,7 @@ def advance(request, ledger, function, lookup, terminal_errors=(), paint_claim=N
         ledger.put(key, call_id)
     elif call_id == "submitting":
         # A worker can start even if the dispatcher lost the response to spawn().
-        claim = paint_claim(asset) if stage == "paint" and paint_claim else None
+        claim = paint_claim(paint_claim_key(asset, attempt)) if stage == "paint" and paint_claim else None
         if not (isinstance(claim, dict) and claim.get("master") == master
                 and claim.get("portrait") == request["sourceSha256"]
                 and isinstance(claim.get("callId"), str)
@@ -60,6 +69,8 @@ def advance(request, ledger, function, lookup, terminal_errors=(), paint_claim=N
                 if request["model"]["assetId"] != asset or not re.fullmatch(r"fc-[A-Za-z0-9]{1,100}", request["finishedCall"]):
                     raise ValueError("invalid-recognition-finished-call")
                 args += (request["finishedCall"], request["model"], request["recognition"], attempt)
+            elif attempt > 1:
+                args += (attempt,)  # A first painting keeps the call shape every earlier worker accepts.
         elif stage == "finish":
             args = (asset, descriptor, master, request["completed"], attempt, request["movement"])
         else:
@@ -77,8 +88,11 @@ def advance(request, ledger, function, lookup, terminal_errors=(), paint_claim=N
     handle = lookup(call_id)
     try:
         result = handle.get(timeout=0)
-    except terminal_errors:
-        return {"status": "failed", "callId": call_id}
+    except terminal_errors as error:
+        if stage == "paint" and isinstance(error, ValueError) and str(error) == COSTUME_REFUSED:
+            # Every painting was refused: the portrait's verdict, which ends the job like other unusable art.
+            return {"status": "invalid-art", "callId": call_id, "detail": failure_detail(error)}
+        return {"status": "failed", "callId": call_id, "detail": failure_detail(error)}
     except TimeoutError:
         return {"status": "pending", "callId": call_id}
     if stage == "recognize":
@@ -118,8 +132,8 @@ def advance(request, ledger, function, lookup, terminal_errors=(), paint_claim=N
     from browser_motion import checked_style_battle_sprite
     try:
         checked_style_battle_sprite(stage, receipt.get("battleSpriteSha256"), result.get("battleSprite"))
-    except ValueError:
-        return {"status": "failed", "callId": call_id}
+    except ValueError as error:
+        return {"status": "failed", "callId": call_id, "detail": failure_detail(error)}
     return {"status": "complete", "callId": call_id, "movement": receipt["movement"]}
 
 
@@ -145,8 +159,8 @@ def publish(request, lookup, destination):
     handle = lookup(request["callId"])
     try:
         result = handle.get(timeout=0)
-    except terminal_result_errors():
-        return {"status": "failed", "callId": request["callId"]}
+    except terminal_result_errors() as error:
+        return {"status": "failed", "callId": request["callId"], "detail": failure_detail(error)}
     if any(result["model"].get(key) != model[key] for key in ("assetId","version","objects","bytes")):
         raise ValueError("wrong-publication-call")
     verified = publish_worker_result(result, model["assetId"], portrait, client, bucket)

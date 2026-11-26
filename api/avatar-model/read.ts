@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { authedPlayer } from '../_auth.js';
-import { withKvLock } from '../_lock.js';
+import { LockContendedError, withKvLock } from '../_lock.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
@@ -9,7 +9,7 @@ import { readSavedPortrait } from './_saved-portrait.js';
 import { matchingProfileDetail } from './_profile-detail.js';
 import { canCreatePlayerModel, modelCreationPolicy, playerPortraitChecksEnabled } from './_admission.js';
 import { paintedTemplates, sealModelRead } from './_private-files.js';
-import { moderateModelPortrait, runModelRead } from './_read-provider.js';
+import { moderateModelPortrait, runModelRead, workerFailureDetail } from './_read-provider.js';
 import { ensureModelOwner, modelOwnerProof } from './_owner.js';
 import { awaitPortraitCheck, endPortraitCheck } from './_auto-start.js';
 
@@ -131,6 +131,8 @@ export async function checkPlayerPortrait(owner: string, ports = providers, { re
                 ...(paintCostume ? {paintCostume:true} : {}) }, bytes, descriptor, sheet);
             row = await persist(row, { ...row, stage: 'ready', summary, readToken: token, expiresAt });
         } else if (result.status === 'declined' || result.status === 'failed') {
+            if (result.status === 'failed')
+                console.warn('[avatar-model/read] Portrait reader failed for operation', row.operation, workerFailureDetail(result));
             row = await persist(row, { ...row, stage: result.status });
         } else throw new Error('Invalid reader state');
     }
@@ -160,5 +162,11 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         // replaces any older result the panel would otherwise still show.
         await (result.state === 'declined' ? endPortraitCheck(owner, 'declined') : awaitPortraitCheck(owner)).catch(() => {});
         return res.status(result.state === 'pending' ? 202 : 200).json(result);
-    } catch { return res.status(503).json({ error: 'unavailable' }); }
+    } catch (error) {
+        // The model loop holds this lock while it advances the same check (_auto-start.ts), once a minute.
+        // That is progress, not a failure: an error here made the page give up on a check that then passed.
+        if (error instanceof LockContendedError) return res.status(202).json({ state: 'pending' });
+        console.error('[avatar-model/read]', error instanceof Error ? error.message : 'unknown error');
+        return res.status(503).json({ error: 'unavailable' });
+    }
 }

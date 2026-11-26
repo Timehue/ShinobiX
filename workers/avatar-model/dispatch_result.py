@@ -14,3 +14,15 @@ def terminal_result_errors():
             FunctionTimeoutError, InternalFailure, OutputExpiredError,
             RuntimeError, KeyError, IndexError, TypeError, AttributeError, AssertionError,
             ZeroDivisionError, ImportError, MemoryError)
+
+
+DETAIL_CHARS = 600
+
+
+def failure_detail(error):
+    """The end of a failed call's error, for the game server's log. Modal re-raises a remote failure locally
+    with the remote traceback in its message; its last lines name the step and why it stopped (2026-11-25:
+    three failed jobs could only be read as "exit status 1")."""
+    lines = [line.strip() for line in str(error).splitlines() if line.strip()]
+    text = " | ".join(lines[-6:]) or type(error).__name__
+    return (type(error).__name__ + ": " + text)[-DETAIL_CHARS:]
