@@ -456,6 +456,7 @@ export function BattleTowerFight({
     onLeaveActive,
     onContinue,
     onRecordBattle,
+    onRunResolved,
     settleFn = initialSession.worldBossEvent ? settleWorldBossEvent : undefined,
     settleOnAnyDone = !!initialSession.worldBossEvent,
     actionFn,
@@ -481,6 +482,7 @@ export function BattleTowerFight({
     onLeaveActive?: () => void;
     onContinue?: () => void;
     onRecordBattle?: (entry: BattleHistoryEntry) => void;
+    onRunResolved?: (runId: string) => void;
     // Optional settle override — the Clan Boss and roaming world boss reuse this
     // fight screen but bank event-specific contribution instead of Tower rewards.
     // When set, the Tower rewards panel is skipped.
@@ -600,6 +602,9 @@ export function BattleTowerFight({
     const storySelf = storyTheme ? session.actors.find((a) => a.side === "squad" && ownedByMe(a.ownerSlug)) : undefined;
     const storySelfHpFrac = storySelf ? Math.max(0, storySelf.hp) / Math.max(1, storySelf.maxHp) : 1;
     const storyDone = session.status === "done";
+    useEffect(() => {
+        if (storyDone) onRunResolved?.(runId);
+    }, [storyDone, onRunResolved, runId]);
     const storyFinalPhase = !!storyTheme && !storyDone && storyBossHpFrac <= 1 / 3;
     useEffect(() => {
         if (!storyTheme) return;

@@ -470,15 +470,24 @@ test('choosing a coast trail gives the continuous walker a destination without c
     const js = ts.transpileModule(exits, { fileName: 'exits.tsx', compilerOptions: {
         target: ts.ScriptTarget.ES2023, jsx: ts.JsxEmit.React, jsxFactory: 'button',
     } }).outputText;
-    const calls: number[][] = [];
+    const calls: number[][] = [], statuses: string[] = [];
     const state = createContext({ world: { sectors: { 111: { name: 'Landing' } } }, busy: false,
         layout: { exits: [{ id: 'road', direction: 'east', tile: 12, destinationSector: 111, destinationTile: 85 }] },
+        quests: { coast: { sealed: [] } }, isOpen: (at: number) => at === 111,
+        setStatus: (text: string) => statuses.push(text),
         footprintStyle: () => ({}), button: (_tag: string, props: object) => props,
         requestContinuousWorldWalk: (...args: number[]) => calls.push(args) });
-    const trail = () => runInContext(js, state)[0] as { disabled: boolean; onClick: () => void };
+    const click = { stopPropagation() {} };
+    const trail = () => runInContext(js, state)[0] as { disabled: boolean; onClick: (event: typeof click) => void };
     assert.equal(trail().disabled, false);
-    trail().onClick();
+    trail().onClick(click);
     assert.deepEqual(calls, [[111, 85]]);
+    // A trail into a region the player has not opened says why instead of walking.
+    state.isOpen = () => false;
+    trail().onClick(click);
+    assert.deepEqual(calls, [[111, 85]]);
+    assert.deepEqual(statuses, ['That region of the coast is not open to you yet.']);
+    state.isOpen = (at: number) => at === 111;
     state.busy = true;
     assert.equal(trail().disabled, true);
     state.busy = false;

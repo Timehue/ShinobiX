@@ -336,6 +336,85 @@ test('the ordinary splitstone seam shares claims while its quest materials stay 
     assert.equal((await start(visitor, node.id, 'splitstone-next-attempt')).status, 200);
 });
 
+test('Rounds II Wrack Cord batches cap at the hand-in, preserve attempts, and replay exactly once', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+    const { questSiteNode } = await import('../quests/_sites.js');
+    const { COAST_ROUND_LINES } = await import('../quests/_coast-rounds.js');
+    const node = questSiteNode('saltstair-harvest-102')!, itemId = 'quest-wrack-cord';
+    const stages = COAST_ROUND_LINES['saltstair-rounds-2'].stages;
+    assert.equal(stages[1].key, 'gather-1');
+    assert.ok(stages[3].kind === 'deliver' && stages[3].itemId === itemId && stages[3].count === 6);
+    for (const { name, held, stage, count, cancel, replaceStageIdentity } of [
+        { name: 'cordfresh', held: 0, stage: 1, count: 2, cancel: false },
+        { name: 'cordpartial', held: 2, stage: 1, count: 2, cancel: false },
+        { name: 'cordlast', held: 5, stage: 1, count: 1, cancel: false },
+        { name: 'cordfull', held: 6, stage: 1, count: 0, cancel: false },
+        { name: 'cordotherstage', held: 2, stage: 2, count: 0, cancel: false },
+        { name: 'cordreaccepted', held: 0, stage: 1, count: 0, cancel: false, replaceStageIdentity: true },
+        { name: 'cordcancel', held: 0, stage: 1, count: 0, cancel: true },
+    ]) {
+        await seed(name, { equipment: { kama: 'tool-basic-harvest-kama' }, gatheringToolUses: { 'tool-basic-harvest-kama': 0 },
+            itemStacks: held ? [{ itemId, count: held }] : [] });
+        const key = `save:${name}`, record = (await kv.get<Json>(key))!;
+        await kv.set(key, { ...record, currentSector: node.sector,
+            questLines: { v: 1, active: { 'saltstair-rounds-2': { stage, at: Date.now() } }, done: {} } });
+        online.remove(name);
+        online.upsert({ name, sector: node.sector, tile: node.approach, character: { level: 100 } });
+        const requestId = `wrack-rounds-${name}-attempt`;
+        const start = await post(name, { action: 'start', nodeId: node.id, mode: 'relaxed', requestId });
+        assert.equal(start.status, 200, JSON.stringify(start.body));
+        assert.equal(Object.hasOwn(start.body.attempt as Json, 'saltstairCordStageAt'), false);
+        const journalKey = `economy-tx:resource-gathering:${createHash('sha256').update(`${name}:${requestId}`).digest('hex')}`;
+        const journal = (await kv.get<{ meta: Json }>(journalKey))!;
+        await kv.set(journalKey, { ...journal, meta: { ...journal.meta, seal: { ...(journal.meta.seal as Json), successDraw: .999 } } });
+        t.mock.timers.tick(4_000);
+        if (replaceStageIdentity) {
+            const admitted = (await kv.get<Json>(key))!;
+            await kv.set(key, { ...admitted, questLines: { v: 1, active: { 'saltstair-rounds-2': { stage, at: Date.now() } }, done: {} } });
+        }
+        const action = cancel ? 'cancel' : 'resolve';
+        const result = await post(name, { action, requestId });
+        assert.equal(result.status, 200, JSON.stringify(result.body));
+        assert.equal((result.body.receipt as Json).outcome, cancel ? 'cancelled' : count ? 'success' : 'failed');
+        assert.equal((result.body.receipt as Json).count ?? 0, count);
+        const character = result.body.character as Json;
+        assert.equal(countOwned(character, itemId), held + count);
+        assert.equal(resourceAttemptsToday(character, 'harvesting'), 1);
+        assert.equal((character.gatheringToolUses as Json)['tool-basic-harvest-kama'], 1);
+        const replay = await post(name, { action, requestId });
+        assert.equal(replay.status, 200, JSON.stringify(replay.body));
+        assert.equal(replay.body.replayed, true);
+        assert.deepEqual(replay.body.receipt, result.body.receipt);
+        assert.equal(countOwned(replay.body.character as Json, itemId), held + count);
+    }
+});
+
+test('the ordinary Wrack-line fibre node does not grant Rounds II Wrack Cord', async (t) => {
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+    const name = 'ordinarywrack', node = resourceNode('coast-resource-wrack-fibre')!;
+    await seed(name, { equipment: { kama: 'tool-basic-harvest-kama' }, gatheringToolUses: { 'tool-basic-harvest-kama': 0 } });
+    const key = `save:${name}`, record = (await kv.get<Json>(key))!;
+    await kv.set(key, { ...record, currentSector: node.sector,
+        questLines: { v: 1, active: { 'saltstair-rounds-2': { stage: 1, at: Date.now() } }, done: {} } });
+    online.remove(name);
+    online.upsert({ name, sector: node.sector, tile: node.approach, character: { level: 100 } });
+    const requestId = 'ordinary-wrack-fibre-attempt';
+    const start = await post(name, { action: 'start', nodeId: node.id, mode: 'relaxed', requestId });
+    assert.equal(start.status, 200, JSON.stringify(start.body));
+    const journalKey = `economy-tx:resource-gathering:${createHash('sha256').update(`${name}:${requestId}`).digest('hex')}`;
+    const journal = (await kv.get<{ meta: Json }>(journalKey))!;
+    assert.equal(Object.hasOwn(journal.meta.seal as Json, 'saltstairCordStageAt'), false);
+    await kv.set(journalKey, { ...journal, meta: { ...journal.meta, seal: { ...(journal.meta.seal as Json), successDraw: 0 } } });
+    t.mock.timers.tick(4_000);
+    const result = await post(name, { action: 'resolve', requestId });
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.equal((result.body.receipt as Json).itemId, 'gather-binding-fiber');
+    const character = result.body.character as Json;
+    assert.ok(countOwned(character, 'gather-binding-fiber') > 0);
+    assert.equal(countOwned(character, 'quest-wrack-cord'), 0);
+    assert.equal(resourceAttemptsToday(character, 'harvesting'), 1);
+});
+
 test('new mining formations recover only in supported clients without restarting or spending twice', async () => {
     const name = 'veincompatibility'; await seed(name);
     const requestId = 'vein-compatible-attempt-001', nodeId = 'resource-17';

@@ -1,5 +1,5 @@
 import { questItem } from "../../../shared/quest-items";
-import { COAST_MIN_LEVEL } from "../../../shared/world-maps";
+import { COAST_MIN_LEVEL, isCoastSector } from "../../../shared/world-maps";
 import { coastStoryArt, coastRewardArt } from "../lib/coast-journal-art";
 /*
  * Quest lines: the long one-time quests (api/quests/lines.ts).
@@ -99,7 +99,16 @@ export function QuestLinesPanel({ playerName, mode, sector, onVersionedCharacter
         const reply = await questLineAction(playerName, action, line.id, extra);
         if (!alive.current) return reply.ok;
         if (reply.character) onVersionedCharacter(reply.character, reply._saveVersion);
-        if (!reply.ok) setNote({ id: line.id, text: questRefusal(reply), reason: reply.reason });
+        if (!reply.ok) {
+            const stage = line.stage;
+            const place = extra.stageKey ? line.remake?.place : stage?.place;
+            const siteAction = action === "make" || (action === "advance" && (stage?.kind === "enter" || stage?.kind === "deliver"));
+            const atNamedCoastSite = place?.name && here(place, sector) && isCoastSector(place.sector);
+            const text = reply.reason === "wrong-place" && siteAction && atNamedCoastSite
+                ? `Open ${place.name} from Places, then use the quest action there.`
+                : questRefusal(reply);
+            setNote({ id: line.id, text, reason: reply.reason });
+        }
         else if (action === "claim" && !reply.replayed) setNote({ id: line.id, good: true, text: typeof reply.earned === "string" ? reply.earned : "The quest is finished." });
         await reload();
         if (alive.current) setBusy(null);
@@ -197,6 +206,7 @@ export function QuestLinesPanel({ playerName, mode, sector, onVersionedCharacter
                     const painting = mode === "journal" && coastStoryArt(line.art);
                     // While a scene is open its card stays put behind it; in the classic reader the buttons there are still focusable.
                     const stage = line.stage, waiting = busy === line.id || !!scene, atStage = here(stage?.place, sector);
+                    const materialTarget = stage?.deliveryReservation?.target ?? stage?.need?.count ?? 1;
                     const foe = stage?.fight;
                     const holds = foe?.hold ? [foe.hold, ...(foe.thenHolds ?? [])] : [];
                     return (
@@ -214,8 +224,8 @@ export function QuestLinesPanel({ playerName, mode, sector, onVersionedCharacter
 
                             {stage?.need && (
                                 <div className="mh-fetch-progress-wrap">
-                                    <div className="mh-fetch-progress-label"><span><QuestIcon id={stage.need.itemId} /> {Math.min(stage.need.have, stage.need.count)} / {stage.need.count} {stage.need.name}</span></div>
-                                    <div className="mission-progress"><span style={{ width: `${Math.min(100, (stage.need.have / Math.max(1, stage.need.count)) * 100)}%` }} /></div>
+                                    <div className="mh-fetch-progress-label"><span><QuestIcon id={stage.need.itemId} /> {Math.min(stage.need.have, materialTarget)} / {materialTarget} {stage.need.name}</span></div>
+                                    <div className="mission-progress"><span style={{ width: `${Math.min(100, (stage.need.have / Math.max(1, materialTarget)) * 100)}%` }} /></div>
                                 </div>
                             )}
                             {mode === "journal" && !!line.gearChance && <span className="mh-fetch-meta">{line.gearChance}% chance of a gear piece</span>}
@@ -231,6 +241,7 @@ export function QuestLinesPanel({ playerName, mode, sector, onVersionedCharacter
                                     {here(line.remake.place, sector) && <Recipe recipe={line.remake} />}
                                 </>
                             )}
+                            {stage?.deliveryReservation && note?.id !== line.id && <p className="hint">{stage.deliveryReservation.message}</p>}
                             {note?.id === line.id && <p role="status" className={note.good ? "quest-line-note is-good" : "quest-line-note"}>{note.text}</p>}
 
                             <div className="quest-line-actions">
