@@ -169,6 +169,9 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
             const startArt=createPosePrerequisite<SheetImage>();
             const startReleaseArt=createPosePrerequisite<SheetImage>();
             const releaseArt=createPosePrerequisite<SheetImage>();
+            // The loop's braking page, held while its start clip plays: moving on into the
+            // loop needs it (releaseReady), and it used to be asked for only on that frame.
+            const loopReleaseArt=createPosePrerequisite<SheetImage>();
             const changeArt=createPosePrerequisite<SheetImage>();
             const changeReleaseArt=createPosePrerequisite<SheetImage>();
             // One moving page per facing, held while the actor walks, so a turn
@@ -416,8 +419,15 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 if (!poseReady || !releaseReady) return waitForArt();
                 if (desired) releaseWarmStarts();
                 if (!afterBrake) { startArt.clear(); startReleaseArt.clear(); }
-                if (desired && pose.page==="start-"+desired) prepareNext(bank[desired]);
-                if (desired && pose.page===desired) warmTurns(desired);
+                if (desired && pose.page==="start-"+desired) {
+                    prepareNext(bank[desired]);
+                    retainPage(loopReleaseArt, brakePage(bank, desired));
+                }
+                if (desired && pose.page===desired) {
+                    // releaseArt now holds the loop's braking page.
+                    loopReleaseArt.clear();
+                    warmTurns(desired);
+                }
                 if (desired && (pose.page===desired || pose.page==="start-"+desired)) prepareGaitChange(bank, desired);
                 if (desired && pose.page.startsWith("change-")) {
                     prepareNext(bank[desired]);
@@ -434,6 +444,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 stride = pose;
                 if(pose.page==="idle") {
                     releaseArt.clear();
+                    loopReleaseArt.clear();
                     changeArt.clear();
                     changeReleaseArt.clear();
                     releaseTurns();
@@ -598,6 +609,7 @@ export const SectorModelFigure = forwardRef<SectorModelHandle, {
                 startArt.dispose();
                 startReleaseArt.dispose();
                 releaseArt.dispose();
+                loopReleaseArt.dispose();
                 changeArt.dispose();
                 changeReleaseArt.dispose();
                 for (const slot of [...turnArt, ...turnReleaseArt]) slot.dispose();

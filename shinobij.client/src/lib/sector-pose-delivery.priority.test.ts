@@ -5,8 +5,9 @@ import { createHash } from "node:crypto";
 /*
  * The decode order through the real loadPackedImage path: fetch, hash check,
  * the worker, and the shared page cache. Only the browser edges are stubbed
- * (network, Worker, object URLs, Image). The worker answers one page at a
- * time, when the test releases it, which is how the real single worker behaves.
+ * (network, Worker, object URLs, Image). Each worker answers one page at a
+ * time, when the test releases it, as the real ones do. There are two: one
+ * that only the player's own figure uses, and one for everything.
  */
 
 const decoded: string[] = [];
@@ -76,6 +77,27 @@ test("the player's own page decodes ahead of other figures and warm-up pages", a
     await drain();
     const images = await Promise.all(loads);
     assert.deepEqual(decoded, ["peer-a idle", "self idle", "peer-b idle", "self warm"]);
+    images.forEach(image => image.release());
+});
+
+test("the player's page decodes on its own worker while a crowd page is still decoding", async () => {
+    const { loadPackedImage } = await import("./sector-pose-delivery");
+    decoded.length = 0;
+    const loads = [
+        loadPackedImage("/art/peer-f/", page("peer-f creature"), 1),
+        loadPackedImage("/art/peer-g/", page("peer-g idle"), 1),
+    ];
+    await settle();
+    loads.push(loadPackedImage("/art/self/", page("self walk"), 0));
+    await settle();
+    // peer-f is still on its worker; the player's walk page is already on the other.
+    assert.equal(releases.length, 2, "two decodes in flight: the crowd page and the player's page");
+    releases.splice(1, 1)[0]!();
+    await settle();
+    assert.deepEqual(decoded, ["self walk"], "the player's page finished without waiting for peer-f");
+    await drain();
+    const images = await Promise.all(loads);
+    assert.deepEqual(decoded, ["self walk", "peer-f creature", "peer-g idle"]);
     images.forEach(image => image.release());
 });
 

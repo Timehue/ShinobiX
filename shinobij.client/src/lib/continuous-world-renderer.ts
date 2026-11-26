@@ -16,6 +16,9 @@ const colors: Record<string, string> = { forest: '#495338', central: '#747052', 
 const hash = (x: number, y: number) => Math.abs(Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1;
 /** Side of a cached terrain tile, in device pixels. */
 const TILE = 256;
+/** How far past the screen edge, in tiles, a sector's floor is requested and decoded:
+ *  about 2.8 s ahead at a run (5 tiles/s), time for a phone to fetch a ~240 KB floor. */
+export const WORLD_FLOOR_LOOKAHEAD_TILES = 14;
 /** Tiles across the map: a whole sector from 528 px (44 px tiles). A narrower (phone) map aims
  *  for 52 px tiles, down to 7 across, so a figure about 0.8 tile tall stays readable. */
 export const worldTilesAcross = (width: number) => width >= 528 ? 12 : Math.max(7, width / 52);
@@ -402,9 +405,15 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
         if (scale !== tileScale) { for (const tile of tiles.values()) release(tile.surface); tiles.clear(); tileScale = scale; tileRange = NaN; }
         const left = position.x - width / tilePx / 2, right = position.x + width / tilePx / 2;
         const top = position.y - height / tilePx / 2, bottom = position.y + height / tilePx / 2;
-        const visible = space.chunks.filter(c => c.x < right + 2 && c.x + 12 > left - 2 && c.y < bottom + 2 && c.y + 12 > top - 2);
+        const within = (margin: number) => space.chunks.filter(c => c.x < right + margin && c.x + 12 > left - margin && c.y < bottom + margin && c.y + 12 > top - margin);
+        // The next floor is asked for well before it scrolls in. Two tiles of margin was a
+        // fraction of a second at a run, and a phone could not download a ~240 KB floor in
+        // that time, so the sector came in as bare ground. Most roads between sectors are
+        // about 16 tiles, so up to 3 neighbours can be in reach on arrival in either world.
+        // That stays within the 4 floors the eviction below already keeps.
+        const ahead = within(WORLD_FLOOR_LOOKAHEAD_TILES);
         const current = chunks.get(sector)!; texture(current, imageFor(sector));
-        for (const chunk of visible) texture(chunk, imageFor(chunk.sector));
+        for (const chunk of ahead) texture(chunk, imageFor(chunk.sector));
         // The terrain snaps to whole device pixels (at most half a pixel off), so cached
         // tiles land crisply and meet exactly. The DOM overlay keeps the exact camera.
         const originX = Math.round(position.x * scale - canvas.width / 2), originY = Math.round(position.y * scale - canvas.height / 2);
@@ -434,7 +443,7 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
             if (tiles.get(tileKey(i, j))?.revision === revision) continue;
             if (budget()) renderTile(i, j); else behind = true;
         }
-        const keep = new Set(visible.map(c => c.sector)); keep.add(sector);
+        const keep = new Set(ahead.map(c => c.sector)); keep.add(sector);
         for (const id of images.keys()) if (!keep.has(id) && images.size > 4) {
             // A floor painting is the size of its map (several MB); free it now, not at the next GC.
             const art = paintings.get(id); if (art) shrink(art);
