@@ -18,10 +18,11 @@ import {
     loadArenaTournament,
     territoryBreachMinsLeft,
 } from "./world-state";
-import { towerFightRunKey } from "./screen-guards";
+import { towerFightRunKey, towerRunStatus } from "./screen-guards";
 import {
     buildNotifications,
     liveFightScreen,
+    towerNoticeForScreen,
     type GameNotification,
 } from "./notifications-core";
 
@@ -83,11 +84,14 @@ export function computeNotifications(ctx: NotifContext): GameNotification[] {
         tournament = { name: t.name ?? "" };
     }
 
+    const battle = liveFightScreen(ctx.screen, ctx.savedRun ?? null, towerFightRunKey());
+    const towerNotice = towerNoticeForScreen(ctx.screen, battle, towerRunStatus());
     return buildNotifications({
         // Only a reminder when you've stepped AWAY from a live fight — on the
         // battle board itself the chip is redundant (you're looking at it) and
         // just overlaps the field on mobile. Clicking it takes you back.
-        battle: liveFightScreen(ctx.screen, ctx.savedRun ?? null, towerFightRunKey()),
+        battle: towerNotice ? null : battle,
+        towerNotice,
         territoryBreach,
         clanWar,
         villageWar,

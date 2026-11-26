@@ -45,6 +45,7 @@ import { useCoastGround } from "./coast-service";
 import { CoastFieldBoundary } from "./CoastFieldBoundary";
 import { CoastPlotArt } from "./CoastPlotArt";
 import { atlasPlate, plotPaint } from "./coast-plot";
+import { coastAtlasGoals } from "./coast-atlas-goals";
 import "./CoastWorld.css";
 
 
@@ -94,13 +95,14 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
     const [world, setWorld] = useState<CoastWorldData | null>(null);
     const [failed, setFailed] = useState(false);
     const [atlasOpen, setAtlasOpen] = useState(false);
+    const atlasFrame = useRef<HTMLDivElement>(null);
     const [tile, setTile] = useState(() => getLocalSectorTile());
     const [siteId, setSiteId] = useState<string | null>(null);
     const [view, setView] = useState<"entry" | "room" | "plans">("entry");
     const [jobId, setJobId] = useState<string | null>(null);
     const [nodeId, setNodeId] = useState<string | null>(null);
     const [status, setStatus] = useState("");
-    const [busy, setBusy] = useState<string | null>(null);
+    const [busy, setBusy] = useState<{ kind: "travel" | "gather"; label: string } | null>(null);
     const [quests, setQuests] = useState<QuestLinesList | null>(null);
 
     const [questKey, setQuestKey] = useState(0);
@@ -112,6 +114,15 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
     }, [attempt]);
     const load = () => { setFailed(false); setAttempt(count => count + 1); };
 
+    // Narrow screens pan a wider atlas. Start at the player pin without
+    // resetting their pan when the quest or holdings data refreshes.
+    useEffect(() => {
+        const frame = atlasFrame.current;
+        const point = world?.points.find(entry => entry.sector === sector);
+        if (!atlasOpen || !world || !frame || !point) return;
+        frame.scrollLeft = frame.scrollWidth * point.x / world.atlas.width - frame.clientWidth / 2;
+    }, [atlasOpen, sector, world]);
+
     useEffect(() => {
         let active = true;
         void loadQuestLines(character.name).then(next => { if (active && next) setQuests(next); });
@@ -120,6 +131,13 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
 
     const layout: CoastSector | undefined = world?.sectors[sector];
     const site = layout?.sites.find(entry => entry.id === siteId) ?? null;
+    const questSite = site ? quests?.sites.find(entry => entry.id === site.id) : undefined;
+    const refillAt = questSite?.remaining === 0 ? questSite.refillAt : 0;
+    useEffect(() => {
+        if (!refillAt) return;
+        const timer = window.setTimeout(() => setQuestKey(key => key + 1), Math.max(0, refillAt - clock()) + 250);
+        return () => window.clearTimeout(timer);
+    }, [refillAt, site?.id]);
     const ground = useCoastGround(atlasOpen || layout?.contestable ? JSON.stringify([character.name, character.clan, sector, atlasOpen]) : "");
     const refreshGround = useEffectEvent(ground.reload);
     useEffect(() => {
@@ -168,7 +186,7 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
     /** A timed crossing: the boat, or a pin on the atlas. The server mints the wait. */
     async function travel(destination: number, label: string) {
         if (busy) return;
-        setBusy(label);
+        setBusy({ kind: "travel", label });
         setStatus("");
         const reply = await coastTravel({ destinationSector: destination });
         if (!reply.ok) { if (alive.current) { setBusy(null); setStatus(reply.error ?? ""); } return; }
@@ -186,7 +204,7 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
 
     async function gather(target: CoastSite) {
         if (busy || !target.gather) return;
-        setBusy(WORK[target.gather]);
+        setBusy({ kind: "gather", label: WORK[target.gather] });
         setStatus("");
         const requestId = attemptId();
         const started = await questSiteGather({ action: "start", nodeId: target.id, mode: "relaxed", requestId });
@@ -200,7 +218,7 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
         setBusy(null);
         const receipt = done.receipt;
         setStatus(!done.ok ? done.error ?? ""
-            : receipt?.outcome === "success" ? `The work paid off. You have one more.${receipt.toolBroke ? " Your tool broke on the last stroke." : ""}`
+            : receipt?.outcome === "success" ? `The work paid off. You have ${(receipt.count ?? 1) > 1 ? receipt.count : "one"} more.${receipt.toolBroke ? " Your tool broke on the last stroke." : ""}`
             : `Nothing came of that attempt.${receipt?.toolBroke ? " Your tool broke." : ""}`);
         setQuestKey(key => key + 1);
     }
@@ -217,6 +235,7 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
         } }));
     }
 
+    const atlasGoals = atlasOpen ? coastAtlasGoals(quests) : null;
     const avatar = resolveOwnAvatar(character, sharedImages);
     const questPanel = <QuestLinesPanel playerName={character.name} mode="sector" sector={sector} onVersionedCharacter={onVersionedCharacter} onLoaded={setQuests} refreshKey={questKey} character={character} sharedImages={sharedImages} />;
 
@@ -242,6 +261,7 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
         });
     }
     function workNode(node: NonNullable<CoastSector["resources"]>[number]) {
+        if (busy) return;
         leaveSite();
         walkToWork(node.approach, () => setNodeId(node.id));
     }
@@ -259,11 +279,12 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
         leaveSite();
         walkToWork(102, () => openBuildingCounter({ buildingId: "saltstair-net-rack" }));
     }
-    const questSite = site ? quests?.sites.find(entry => entry.id === site.id) : undefined;
+    const isOpen = (at: number) => !!world.sectors[at] && coastRegionOf(at) <= openRegion && !quests?.coast.sealed?.includes(at);
+    const present = busy?.kind !== "travel";
     /** True where a quest can be taken or moved on: a whole sector for the atlas, or one site in the sector the player stands in. */
     const questHere = (at: number, siteId?: string) => !!quests?.coast.places?.some(place => place.sector === at && (!siteId || place.site === siteId));
 
-    const statusLine = <p className="coast-world-status" role="status">{busy ? `${busy}…` : status}</p>;
+    const statusLine = <p className="coast-world-status" role="status">{busy ? `${busy.label}…` : status}</p>;
     const questMark = <GameArtIcon kind="scroll" size={28} className="coast-quest-mark" title="A quest has something for you here" />;
     const clanPanel = <CoastClanPanel ground={ground} key={sector} plot={site?.id === "saltstair-plot-108"}
         character={character} sector={sector} commit={onVersionedCharacter} enter={busy ? undefined : enterTown} />;
@@ -280,24 +301,31 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
                 <button type="button" onClick={() => setAtlasOpen(false)}>Sector</button></header>}
             {atlasOpen ? (
                 <section className="coast-atlas" aria-label="Map of the Unmapped Coast">
-                    <div className="coast-atlas-frame"><div className="coast-atlas-canvas">
+                    {!!atlasGoals?.size && <div className="coast-atlas-goals">
+                        <h3>Active quest destinations</h3>
+                        <ul>{[...atlasGoals].map(([at, goals]) => goals.map(goal => <li key={at + ":" + goal.questId}>
+                            <strong>Sector {at}{world.sectors[at] ? " · " + world.sectors[at].name : ""}</strong> · {goal.text}
+                        </li>))}</ul>
+                    </div>}
+                    <div className="coast-atlas-frame" ref={atlasFrame}><div className="coast-atlas-canvas">
                         <img src={ART + world.atlas.image} alt="" draggable={false} />
                         {world.points.map(point => {
                             const destination = world.sectors[point.sector];
-                            const reachable = !!destination && point.region <= openRegion && !quests?.coast.sealed?.includes(point.sector);
+                            const reachable = isOpen(point.sector);
                             const name = destination?.name ?? "Uncharted";
                             const label = point.sector === sector ? `You are here, ${name}` : reachable ? `Travel to ${name}` : `${name}, not open to you yet`;
                             const holding = areas?.find(row => row.sector === point.sector);
+                            const goals = atlasGoals?.get(point.sector)?.map(goal => goal.text) ?? [];
                             const state = atlasPlate(point.sector === sector, !!quests?.coast.sealed?.includes(point.sector), reachable, holding);
                             return (
                                 <button key={point.sector} type="button" disabled={!reachable || !!busy || point.sector === sector}
                                     className="coast-pin"
                                     style={{ left: `${point.x / world.atlas.width * 100}%`, top: `${point.y / world.atlas.height * 100}%` }}
-                                    title={label}
-                                    aria-description={[state, holding?.holder?.clan, holding?.contest?.phase].filter(Boolean).join(" · ")}
+                                    title={[`Sector ${point.sector}`, label, ...goals].join(" · ")}
+                                    aria-description={[`Sector ${point.sector}`, state, holding?.holder?.clan, holding?.contest?.phase, ...goals].filter(Boolean).join(" · ")}
                                     aria-label={label}
                                     onClick={() => void travel(point.sector, `Travelling to ${name}`)}>
-                                    <img src={ART + "markers/atlas-" + state + "-v1.webp"} alt="" /><span>{point.sector - 100}</span>
+                                    <img src={ART + "markers/atlas-" + state + "-v1.webp"} alt="" /><span>{point.sector}</span>
                                     {questHere(point.sector) && questMark}
                                 </button>
                             );
@@ -320,11 +348,22 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
                         if (next !== sector) setCurrentSector(next);
                     }} overlayLayer={<>
                         {!site && <CoastWatch key={sector} sector={sector} inspect={setStatus} />}
-                        {layout.exits.map(({ id, tile, direction, destinationSector, destinationTile }) => <button
-                            key={id} type="button" className="coast-site" style={footprintStyle(tile % 12, Math.floor(tile / 12), 1)}
-                            title={'Follow the ' + direction + ' trail to ' + (world.sectors[destinationSector]?.name ?? destinationSector)}
-                            disabled={!!busy || !world.sectors[destinationSector]}
-                            onClick={() => requestContinuousWorldWalk(destinationSector, destinationTile)} />)}
+                        {layout.exits.map(({ id, tile, direction, destinationSector, destinationTile }) => {
+                            const destination = world.sectors[destinationSector];
+                            const label = `Follow the ${direction} trail to ${destination?.name ?? destinationSector}`;
+                            const refusal = !quests ? "The coast charts are still loading. Try again in a moment."
+                                : isOpen(destinationSector) ? undefined
+                                    : quests.coast.sealed?.includes(destinationSector) ? "This route is sealed by a Coast story choice."
+                                        : "That region of the coast is not open to you yet.";
+                            return <button key={id} type="button" className="coast-site" style={footprintStyle(tile % 12, Math.floor(tile / 12), 1)}
+                                title={refusal ? `${label}. ${refusal}` : label} aria-label={label} aria-description={refusal}
+                                disabled={!!busy || !destination}
+                                onClick={event => {
+                                    event.stopPropagation();
+                                    if (refusal) setStatus(refusal);
+                                    else if (!requestContinuousWorldWalk(destinationSector, destinationTile)) setStatus("Connecting to the coast. Try again in a moment.");
+                                }} />;
+                        })}
                         {layout.sites.map(entry => {
                             const [x, y, size] = entry.footprint;
                             return (
@@ -360,7 +399,7 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
                         <CoastPatrols mask={layout.mask} key={sector} sector={sector} disabled={!!busy} notify={setStatus} />
                         {/* The keepers at their counters, and the boss a quest has brought the player to: choosing one goes to its place. */}
                         {quests?.coast.figures?.filter(figure => figure.sector === sector).map(figure => (
-                            <CoastFigure marker={coastFigureMarker(figure)} mask={layout.mask} key={figure.label} tile={figure.site === "saltstair-dock-101" ? 90 : figure.tile} model={figure.model} prop={figure.site === "saltstair-dock-101" ? { kind: "net", done: false } : undefined} label={figure.site === "saltstair-dock-101" ? figure.label + " · Tending the net rack" : figure.label} disabled={!!busy}
+                            <CoastFigure marker={figure.boss || questHere(sector, figure.site) ? coastFigureMarker(figure) : undefined} mask={layout.mask} key={figure.label} tile={figure.site === "saltstair-dock-101" ? 90 : figure.tile} model={figure.model} prop={figure.site === "saltstair-dock-101" ? { kind: "net", done: false } : undefined} label={figure.site === "saltstair-dock-101" ? figure.label + " · Tending the net rack" : figure.label} disabled={!!busy}
                                 pick={() => { const place = layout.sites.find(entry => entry.id === figure.site); if (place) void visit(place); }} />
                         ))}
                         {/* The people of the coast (api/quests/_coast-residents.ts). Choosing one shows the line the server picked for this player. */}
@@ -370,14 +409,14 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
                         ))}
                     </>}>
 
-                    <SectorHudFrame sector={sector} present={!busy} biome={layout.biome as Biome} chatName={character.name}
+                    <SectorHudFrame sector={sector} present={present} biome={layout.biome as Biome} chatName={character.name}
                         weather={layout.contestable && !areas ? (ground.lands.error ? "Weather unavailable" : "Reading weather…") :
                             <CoastWeather sector={sector} biome={layout.biome} area={area} />}
                         name={layout.name} region={world.regions[region - 1]} questHere={questHere(sector)}
                         explore={<CoastExplore key={sector} character={character} sector={sector} commit={onVersionedCharacter} disabled={!!busy} />}
-                        nearby={<CoastNearby sector={sector} name={character.name} village={character.village} images={sharedImages} present={!busy}
-                            attack={sectorAttackPlayer}
-                            spectate={setPvpBattleId && setPvpRole && setPvpBattleContext ? async (target, isCurrent) => {
+                        nearby={<CoastNearby sector={sector} name={character.name} village={character.village} images={sharedImages} present={present}
+                            attack={busy ? undefined : sectorAttackPlayer}
+                            spectate={!busy && setPvpBattleId && setPvpRole && setPvpBattleContext ? async (target, isCurrent) => {
                                 const battleId = await findSectorSpectatorBattle(target.name, character.name);
                                 if (!isCurrent()) throw new Error("This player is no longer available to spectate.");
                                 setPvpBattleContext({ spectatingFromSector: sector });
@@ -431,15 +470,16 @@ export function CoastWorld({ character, sector, setCurrentSector, setCurrentBiom
                             {!!site.floors?.length && <button type="button" onClick={() => setView("room")}>Enter {site.name}</button>}
                             {isPlot(site.id) && clanPanel}
                             {site.id === "saltstair-plot-108" && <button type="button" onClick={() => setView("plans")}>View building plans</button>}
-                            {questPanel}
-                            {site.boat && <section><h4>The boatwright’s crew</h4><p>The crew needs binding fibre from Wrack Strand (102), ore from Splitstone Seam (103), and fish from Needle Shoal (104). The net mender at the shoal can use a second pair of hands.</p><button type="button" onClick={openRack}>Visit the net rack</button></section>}
-                            {siteNode && <button type="button" onClick={() => workNode(siteNode)}>{WORK[siteNode.activity]} {siteNode.name}</button>}
                             {site.gather && (questSite ? (
                                 <div className="coast-gather">
                                     <p>You hold {questSite.have}{questSite.kept ? "" : " of " + questSite.need}. You have {questSite.remaining} of 3 attempts here before it must rest. It takes a {TOOL[site.gather]} and skill level {questSite.level}.</p>
-                                    <button type="button" disabled={!!busy || questSite.remaining < 1} onClick={() => void gather(site)}>{busy === WORK[site.gather] ? "Working…" : WORK[site.gather] + " quest material"}</button>
+                                    {refillAt > 0 && <p className="hint">Attempts reset at <time dateTime={new Date(refillAt).toISOString()}>{new Date(refillAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</time> (your time).</p>}
+                                    <button type="button" disabled={!!busy || questSite.remaining < 1} onClick={() => void gather(site)}>{busy?.kind === "gather" ? "Working…" : site.id === "saltstair-harvest-102" ? "Harvest Wrack Cord" : WORK[site.gather] + " quest material"}</button>
                                 </div>
                             ) : <p className="hint">Story materials become available when a quest sends you here.</p>)}
+                            {siteNode && <button type="button" disabled={!!busy} onClick={() => workNode(siteNode)}>{WORK[siteNode.activity]} {siteNode.name}</button>}
+                            {questPanel}
+                            {site.boat && <section><h4>The boatwright’s crew</h4><p>The crew needs binding fibre from Wrack Strand (102), ore from Splitstone Seam (103), and fish from Needle Shoal (104). The net mender at the shoal can use a second pair of hands.</p><button type="button" onClick={openRack}>Visit the net rack</button></section>}
                             {boatAt(site) && <button type="button" disabled={!!busy} onClick={() => { setSiteId(null); void travel(HOME_HARBOR_SECTOR, "Sailing home"); }}><img className="coast-slip-boat" src={boatArt} alt="" />Sail home to the Western Piers</button>}
                             {statusLine}
                             <button type="button" onClick={leaveSite}>Leave</button>

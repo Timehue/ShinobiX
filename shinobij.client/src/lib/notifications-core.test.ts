@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { setTowerRunStatus, TOWER_RECOVERY_RUN_KEY, TOWER_RUN_KEY, towerRunStatus } from "./screen-guards";
 import {
     buildNotifications,
     isBattleOnlyScreen,
@@ -8,6 +9,7 @@ import {
     liveFightScreen,
     savedRunScreen,
     shouldHideBattleChrome,
+    towerNoticeForScreen,
     type NotifInputs,
 } from "./notifications-core";
 
@@ -66,6 +68,49 @@ test("a Tower run key points to its host, never from a screen that hosts Tower f
         assert.equal(liveFightScreen(screen, null, "tower-0123abcd"), null, screen);
         assert.equal(liveFightScreen(screen, null, "pvp:tpvp-0123"), null, screen);
     }
+});
+
+test("a known Tower result remains recoverable without claiming the player is fighting", () => {
+    assert.equal(towerNoticeForScreen("worldMap", "battleTowers", "done"), "result");
+    assert.equal(towerNoticeForScreen("worldMap", null, "done"), "result");
+    assert.equal(towerNoticeForScreen("worldMap", "battleTowers", "active"), null);
+    assert.equal(towerNoticeForScreen("worldMap", "battleTowers", null), "resume");
+    assert.equal(towerNoticeForScreen("worldMap", null, null), null);
+    assert.equal(towerNoticeForScreen("worldMap", "battleArena", "done"), null);
+    assert.equal(towerNoticeForScreen("battleTowers", null, "done"), null);
+    assert.equal(towerNoticeForScreen("hospital", null, "done"), null);
+    const [legacy] = buildNotifications({ ...EMPTY, towerNotice: "resume" });
+    assert.equal(legacy.label, "Resume Tower run");
+    assert.equal(legacy.tone, "info");
+    const [active] = buildNotifications({ ...EMPTY, battle: "battleTowers" });
+    assert.equal(active.label, "In battle");
+    const [result] = buildNotifications({ ...EMPTY, towerNotice: "result" });
+    assert.equal(result.label, "View results");
+    assert.equal(result.screen, "battleTowers");
+    assert.equal(result.tone, "info");
+});
+
+test("Tower status stays tied to the exact recoverable run across reloads", (t) => {
+    const original = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+    const values = new Map<string, string>();
+    Object.defineProperty(globalThis, "localStorage", { configurable: true, value: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => values.set(key, value),
+        removeItem: (key: string) => values.delete(key),
+    } });
+    t.after(() => original ? Object.defineProperty(globalThis, "localStorage", original) : Reflect.deleteProperty(globalThis, "localStorage"));
+    values.set(TOWER_RUN_KEY, "old-run");
+    values.set(TOWER_RECOVERY_RUN_KEY, "old-run");
+    assert.equal(towerRunStatus(), null, "old saved keys must not guess at a run's state");
+    setTowerRunStatus("old-run", "active");
+    assert.equal(towerRunStatus(), "active");
+    setTowerRunStatus("old-run", "done");
+    values.delete(TOWER_RUN_KEY);
+    assert.equal(towerRunStatus(), "done", "a result remains recoverable after leaving its screen");
+    values.set(TOWER_RUN_KEY, "another-run");
+    assert.equal(towerRunStatus(), null, "a stale result cannot mask a different current run");
+    values.delete(TOWER_RECOVERY_RUN_KEY);
+    assert.equal(towerRunStatus(), null, "a result with no recovery link cannot be shown");
 });
 
 test("no in-battle chip on the Hospital, which an admitted player cannot leave", () => {

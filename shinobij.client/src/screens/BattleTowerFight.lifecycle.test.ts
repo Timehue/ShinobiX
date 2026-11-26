@@ -5,6 +5,7 @@ import { towerPlayerSlug } from "../lib/towers-api";
 
 const fightSource = readFileSync(new URL("./BattleTowerFight.tsx", import.meta.url), "utf8");
 const hostSource = readFileSync(new URL("./BattleTowers.tsx", import.meta.url), "utf8");
+const guardsSource = readFileSync(new URL("../lib/screen-guards.ts", import.meta.url), "utf8");
 const lobbySource = readFileSync(new URL("./BattleTowersLobby.tsx", import.meta.url), "utf8");
 const css = readFileSync(new URL("../styles/battle-skin.css", import.meta.url), "utf8");
 
@@ -99,7 +100,10 @@ describe("Tower completed-run recovery", () => {
     });
 
     it("keeps an independent MPvE breadcrumb when leaving only the active view", () => {
-        assert.match(hostSource, /export const TOWER_RECOVERY_RUN_KEY = "shinobix:towerRecoveryRunId:v1"/);
+        // The key lives in screen-guards (the nav status hint reads it too); the host re-exports that one constant.
+        assert.match(guardsSource, /export const TOWER_RECOVERY_RUN_KEY = "shinobix:towerRecoveryRunId:v1"/);
+        assert.match(hostSource, /import \{[^}]*\bTOWER_RECOVERY_RUN_KEY\b[^}]*\} from "\.\.\/lib\/screen-guards"/);
+        assert.match(hostSource, /export \{ TOWER_RECOVERY_RUN_KEY \};/);
         assert.match(hostSource, /localStorage\.getItem\(TOWER_RUN_KEY\) \?\? localStorage\.getItem\(TOWER_RECOVERY_RUN_KEY\)/);
         assert.match(hostSource, /onLeaveActive=\{\(\) => \{[\s\S]*?clearFightKey\(\);[\s\S]*?writeRecoveryKey\(view\.runId\);[\s\S]*?onExit\(\)/);
         // The 2v2 board moved to the Battle Arena, so the Towers host must no

@@ -19,6 +19,7 @@ export type QuestStage = {
     text: string;
     place?: QuestPlace;
     need?: QuestItemCount;
+    deliveryReservation?: { target: number; message: string };
     recipe?: QuestRecipe;
     fight?: QuestFight;
     choice?: { prompt: string; place?: string; options: { key: string; label: string; blurb: string }[] };

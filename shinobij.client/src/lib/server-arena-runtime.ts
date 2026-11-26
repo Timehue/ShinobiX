@@ -123,6 +123,8 @@ export type ServerArenaSession = {
     /** Opaque runtime revision used only by the selected transport. */
     runtimeVersion?: number;
     map: { width: number; height: number; biome?: string; blockedTiles: number[] };
+    /** Display-only name of the sealed encounter place, independent of terrain. */
+    locationLabel?: string;
     actors: ServerArenaActor[];
     turnQueue: string[];
     activeIndex: number;

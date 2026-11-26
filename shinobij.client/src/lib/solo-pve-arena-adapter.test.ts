@@ -33,6 +33,18 @@ test("solo session maps into the runtime-neutral normal Arena view", () => {
     assert.equal(view.companionUsed, false);
 });
 
+test("a sealed Coast location is displayed independently from the combat terrain and weather", () => {
+    const source = session();
+    source.encounter = { kind: "world-ai", id: "quest-line", metadata: { sector: 107, locationLabel: "Unmoored Garrison" } };
+    source.environment = { biome: "central", blockedTiles: [5], weatherPositiveElement: "wind", weatherNegativeElement: "earth" };
+    const view = soloPveSessionForArena(source);
+    assert.equal(view.locationLabel, "Unmoored Garrison");
+    assert.deepEqual(view.map, { width: 12, height: 10, biome: "central", blockedTiles: [5] });
+    assert.equal(view.weather?.positiveElement, "wind");
+    assert.equal(view.weather?.negativeElement, "earth");
+    assert.equal(soloPveSessionForArena(session()).locationLabel, undefined);
+});
+
 test("the Arena view carries the server's VFX plates through, tagged by event seq", () => {
     const source = session();
     source.eventSeq = 12;

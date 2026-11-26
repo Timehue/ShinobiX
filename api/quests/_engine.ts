@@ -164,6 +164,21 @@ function reservedByOtherQuests(
     return { units, title };
 }
 
+/** Shared projection for the authoritative hand-in guard and its early player warning. */
+export function questDeliveryReservation(
+    deps: Pick<QuestEngineDeps, 'catalogue'>,
+    record: QuestLinesRecord,
+    questId: string,
+    itemId: string,
+    count: number,
+    held: number,
+): { target: number; message: string } | undefined {
+    const reserved = reservedByOtherQuests(deps, record, questId, itemId);
+    const target = count + reserved.units;
+    if (!reserved.units || held >= target) return undefined;
+    return { target, message: `${reserved.title} still needs ${reserved.units} of these. Gather ${target - held} more before you hand any in.` };
+}
+
 // ── Accept ───────────────────────────────────────────────────────────────────
 
 export function acceptQuestLine(
@@ -246,13 +261,10 @@ export function advanceQuestLine(
             // Handing these in must not strand another quest the player has
             // under way. Quests share one backpack, and a side line asks for the
             // same materials a main quest does.
-            const reserved = reservedByOtherQuests(deps, record, questId, stage.itemId);
-            if (held - reserved.units < stage.count) {
-                return refuse('reserved', {
-                    stage: active.stage, progress: held, target: stage.count + reserved.units,
-                    error: `${reserved.title} still needs ${reserved.units} of these. Gather ${stage.count + reserved.units - held} more before you hand any in.`,
-                });
-            }
+            const reservation = questDeliveryReservation(deps, record, questId, stage.itemId, stage.count, held);
+            if (reservation) return refuse('reserved', {
+                stage: active.stage, progress: held, target: reservation.target, error: reservation.message,
+            });
             const delivered = { ...(active.delivered ?? {}), [stage.key]: stage.count };
             return advanced(record, line, nextStage(active, ctx.now, { delivered, took: true }), removeOwned(character, stage.itemId, stage.count));
         }

@@ -179,6 +179,8 @@ export const BATTLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
 // same-tab reactivity for App's ref-backed guard (`storage` only fires in other
 // documents), and is dispatched synchronously after every Tower-owned write.
 export const TOWER_RUN_KEY = "shinobix:towerRunId";
+export const TOWER_RECOVERY_RUN_KEY = "shinobix:towerRecoveryRunId:v1";
+const TOWER_RUN_STATUS_KEY = "shinobix:towerRunStatus:v1";
 export const TOWER_FIGHT_STATE_EVENT = "shinobix:tower-fight-state";
 export const TOWER_PVP_RUN_PREFIX = "pvp:";
 
@@ -188,6 +190,26 @@ export function setTowerFightRunId(runId: string | null): void {
         else localStorage.removeItem(TOWER_RUN_KEY);
     } catch { /* storage disabled */ }
     if (typeof window !== "undefined") window.dispatchEvent(new Event(TOWER_FIGHT_STATE_EVENT));
+}
+
+/** Display-only hint. The server still authenticates and restores the run. */
+export function setTowerRunStatus(runId: string | null, status?: "active" | "done"): void {
+    try {
+        if (runId && status) localStorage.setItem(TOWER_RUN_STATUS_KEY, status + ":" + runId);
+        else localStorage.removeItem(TOWER_RUN_STATUS_KEY);
+    } catch { /* storage disabled */ }
+}
+
+export function towerRunStatus(): "active" | "done" | null {
+    try {
+        const run = localStorage.getItem(TOWER_RECOVERY_RUN_KEY);
+        const hint = localStorage.getItem(TOWER_RUN_STATUS_KEY);
+        const activeRun = towerFightRunKey();
+        if (!run || (activeRun && activeRun !== run)) return null;
+        if (hint === "done:" + run) return "done";
+        if (hint === "active:" + run && activeRun === run) return "active";
+    } catch { /* storage disabled */ }
+    return null;
 }
 
 export function setTowerPvpMatchId(matchId: string | null): void {
