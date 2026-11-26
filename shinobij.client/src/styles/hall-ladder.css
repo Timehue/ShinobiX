@@ -1,0 +1,46 @@
+.hall-ladder { margin: 4px 0 18px; text-align: left; }
+.hall-ladder h3 { margin: 0 0 4px; text-align: center; letter-spacing: .04em; }
+.hall-ladder__progress { margin: 0 0 10px; text-align: center; color: #9aa3b2; }
+.hall-ladder__arrival { margin: 0 auto 10px; max-width: 420px; text-align: center; color: #f3cf7a; font-weight: 600; }
+.hall-ladder__climb { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; justify-content: center; }
+
+/* The tower painting. Each reached floor's duelist stands on it as a painted
+   cutout, feet on the floor spot, at the tower's own scale: no rings, labels
+   or badges are drawn over the art. */
+.hall-tower { position: relative; flex: 0 1 420px; width: 100%; max-width: 420px; aspect-ratio: 2 / 3; background: #0b1016; border-radius: 14px; overflow: hidden; box-shadow: 0 14px 34px rgba(0, 0, 0, .5); }
+.hall-tower__floor { position: absolute; min-width: 44px; transform: translate(-50%, -100%); display: flex; align-items: flex-end; justify-content: center; padding: 0; border: 0; background: none; cursor: pointer; }
+/* The camera: the painting at ZOOM (HallLadder.tsx) scale, panned to a floor. */
+.hall-tower__stage { position: absolute; inset: 0 auto auto 0; width: 160%; height: 160%; background: #0b1016 center / 100% 100% no-repeat; transition: transform 1.6s cubic-bezier(.45, 0, .2, 1); will-change: transform; }
+@media (prefers-reduced-motion: reduce) { .hall-tower__stage { transition: none; } }
+html.lite-fx .hall-tower__stage { transition: none; }
+/* Not a game button: no raised ledge, plate or hover brightening under the figure. */
+.hall-tower__floor, .hall-tower__floor:hover, .hall-tower__floor:active { box-shadow: none; filter: none; transform: translate(-50%, -100%); }
+.hall-tower__floor img { height: 100%; width: auto; display: block; filter: drop-shadow(0 3px 3px rgba(0, 0, 0, .7)); }
+.hall-tower__floor.is-beaten img { filter: brightness(.8) saturate(.8) drop-shadow(0 3px 3px rgba(0, 0, 0, .7)); }
+.hall-tower__floor.is-current img { filter: drop-shadow(0 0 5px rgba(255, 196, 102, .55)) drop-shadow(0 3px 3px rgba(0, 0, 0, .7)); }
+.hall-tower__floor.is-shown img { filter: drop-shadow(0 0 7px rgba(255, 206, 120, .9)) drop-shadow(0 3px 3px rgba(0, 0, 0, .7)); }
+.hall-tower__floor:hover img { filter: drop-shadow(0 0 7px rgba(255, 206, 120, .75)) drop-shadow(0 3px 3px rgba(0, 0, 0, .7)); }
+.hall-tower__floor:focus-visible { outline: 2px solid #fff; outline-offset: 2px; border-radius: 6px; }
+.hall-tower__floor.is-arrived img { animation: hall-tower-arrive 1.2s ease-out 1.4s both; }
+@keyframes hall-tower-arrive { from { opacity: 0; transform: translateY(8%); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .hall-tower__floor.is-arrived img { animation: none; } }
+html.lite-fx .hall-tower__floor.is-arrived img { animation: none; }
+
+.hall-ladder__card { flex: 1 1 280px; max-width: 460px; display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+.hall-ladder__portrait { width: 112px; height: 112px; border-radius: 12px; object-fit: cover; border: 1px solid var(--sj-border-strong, #444); }
+.hall-ladder__detail { flex: 1 1 220px; }
+.hall-ladder__floor { margin: 0; font-size: .75rem; letter-spacing: .14em; text-transform: uppercase; color: #f3cf7a; }
+.hall-ladder__detail h4 { margin: 2px 0 6px; }
+.hall-ladder__detail h4 small { color: #9aa3b2; font-weight: 400; margin-left: 6px; }
+.hall-ladder__bouts { margin: 0 0 10px; padding-left: 0; list-style: none; }
+.hall-ladder__bouts li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 2px 0; color: #9aa3b2; }
+.hall-ladder__bouts li.is-won { color: #9fc48c; }
+.hall-ladder__bouts li.is-next { color: inherit; font-weight: 600; }
+.hall-ladder__rematch { min-height: 44px; padding: 4px 10px; font-size: .8rem; }
+.hall-ladder__lesson { margin: 0 0 10px; padding: 8px 10px; border-left: 3px solid #d9a441; background: rgba(217, 164, 65, .08); border-radius: 4px; }
+.hall-ladder__lesson p { margin: 4px 0 0; line-height: 1.45; }
+.hall-ladder__fight { min-height: 44px; }
+.hall-ladder__floors { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+.hall-ladder__floors > * { display: inline-grid; place-items: center; min-width: 44px; min-height: 44px; padding: 0 8px; border-radius: 8px; font-weight: 700; }
+.hall-ladder__floors > span { color: #5d6573; border: 1px dashed #3a4250; }
+.hall-ladder__floors > button.is-shown { border-color: #f3cf7a; color: #f3cf7a; }

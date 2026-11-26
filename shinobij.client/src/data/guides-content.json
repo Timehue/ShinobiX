@@ -1499,7 +1499,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "AI spar lets you test against Easy, Medium, or Hard, and it pays nothing. Free-play PvP lets you queue or challenge another player without risking rating. It awards no ryo or rating, but a counted duel pays Chronicle Points. Start with Easy while you learn your opening, then try harder opponents as your deck improves."
+            "text": "The Hall Tower in the Play section is a climb of six AI duelists, one per floor. Beat a duelist three times, each bout harder than the last, to open the next floor. Each duelist teaches one rule of the game. AI spar lets you test against Easy, Medium, or Hard, and it pays nothing. Free-play PvP lets you queue or challenge another player without risking rating. It awards no ryo or rating, but a counted duel pays Chronicle Points. Start with Easy while you learn your opening, then try harder opponents as your deck improves."
           },
           {
             "type": "p",
@@ -1507,7 +1507,7 @@
           },
           {
             "type": "p",
-            "text": "Chronicle Points come from several places. Echoes of War pays for its victories. A duel against another player in free play, a Clan War, a Sector War, or a Village War card stronghold pays 20 Chronicle Points for a win and 8 for a loss. It counts when it reaches turn 3, lasts 45 seconds, has three plays from each side, and ends without a forfeit or timeout. Wins traded back and forth with one opponent do not pay. Each opponent pays in full for your first two counted duels of the day, then half, then a quarter, then nothing until the next day. A duel pays no one when the loser is under 72 hours old and below level 20, or when the winner is more than 20 levels above the loser. A winner that new still earns the win, but the loser gets no loss pay. Winning a Dungeon card seal or a Rift card ambush pays 10, and beating a Sector War garrison pays 15, as does beating a Village War stronghold's Anbu deck. The result screen shows what each battle paid."
+            "text": "Chronicle Points come from several places. Echoes of War pays for its victories. The Hall Tower pays once for the first win of each bout: 10 for each of a duelist's first two bouts, 30 for the bout that beats them, and 60 for beating the champion at the top, 330 in all. A rematch of a bout you have already won pays nothing. A duel against another player in free play, a Clan War, a Sector War, or a Village War card stronghold pays 20 Chronicle Points for a win and 8 for a loss. It counts when it reaches turn 3, lasts 45 seconds, has three plays from each side, and ends without a forfeit or timeout. Wins traded back and forth with one opponent do not pay. Each opponent pays in full for your first two counted duels of the day, then half, then a quarter, then nothing until the next day. A duel pays no one when the loser is under 72 hours old and below level 20, or when the winner is more than 20 levels above the loser. A winner that new still earns the win, but the loser gets no loss pay. Winning a Dungeon card seal or a Rift card ambush pays 10, and beating a Sector War garrison pays 15, as does beating a Village War stronghold's Anbu deck. The result screen shows what each battle paid."
           }
         ]
       }

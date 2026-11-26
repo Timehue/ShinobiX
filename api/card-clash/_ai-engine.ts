@@ -51,6 +51,8 @@ export interface AiMatchSession {
   opponentDeckName?: string;
   /** Keeper's Path: the run and node this duel was sealed for at ai-start. */
   keeperRun?: { runId: string; nodeId: string };
+  /** Hall Ladder: the bout this duel was sealed for at ai-start. */
+  hallLadder?: { bout: number };
 }
 
 export type AiMatchProjection = ChronicleProjection & {
@@ -58,6 +60,8 @@ export type AiMatchProjection = ChronicleProjection & {
   aiDifficulty: ChronicleAiDifficulty;
   aiDeckName: string;
   winnerResult?: AiMatchResult;
+  /** The Hall Ladder bout this duel was sealed for, if any. */
+  hallLadderBout?: number;
 };
 
 /** Captures the committed player action and each individual AI reply so the
@@ -1066,5 +1070,8 @@ export function projectAiMatch(session: AiMatchSession): AiMatchProjection {
       CHRONICLE_AI_DIFFICULTY_DETAILS[session.difficulty].deckName,
     ...projectMatchForViewer(session.state, "p1"),
     winnerResult: resultFor(session.state),
+    // A resumed Hall Ladder duel still knows its bout (display only: the
+    // settle reads the sealed session, never this).
+    ...(session.hallLadder ? { hallLadderBout: session.hallLadder.bout } : {}),
   };
 }

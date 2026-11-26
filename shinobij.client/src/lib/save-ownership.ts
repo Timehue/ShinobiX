@@ -123,7 +123,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'battleTowerBestFloor', 'battleTowerRating', 'battleTowerClearedFloors',
     'totalTournamentsCompleted', 'totalTilesExplored', 'hollowGateWardenKills',
     'rankedWins', 'rankedLosses', 'villageWarMissionsCompleted', 'totalMissionsCompleted',
-    'cardClashWins', 'cardClashLosses', 'cardClashDraws', 'echoesOfWar', 'keeperPath', 'echoesWitnessChoices', 'eraJourneys', 'firstPactAuraPaid',
+    'cardClashWins', 'cardClashLosses', 'cardClashDraws', 'echoesOfWar', 'keeperPath', 'hallLadder', 'echoesWitnessChoices', 'eraJourneys', 'firstPactAuraPaid',
     // Clan
     'clanPoints', 'weeklyClanPoints', 'weeklyClanPointsWeek', 'lifetimeClanPoints',
     'clanPointHistory', 'clanExchangePurchases', 'clanExchangeSettlements', 'clanMissionPointReceipts', 'clanWarRewardReceipts',

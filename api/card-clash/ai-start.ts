@@ -37,6 +37,8 @@ import {
 } from "./_echoes-catalog.js";
 import { keeperNode, keeperPathOf } from "../../shared/keeper-path-contract.js";
 import { applyKeeperModifiers, KEEPER_MATCH_BINDING_TTL_SECONDS, keeperMatchBindingKey, keeperOpponentDeck } from "./_keeper-path.js";
+import { hallLadderBout, hallLadderBoutOpen, hallLadderOf } from "../../shared/hall-ladder-contract.js";
+import { applyHallLadderBout, hallLadderOpponentDeck } from "./_hall-ladder.js";
 
 function submittedIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -134,6 +136,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res
         .status(400)
         .json({ error: "An Echoes duel cannot carry a Dungeon seal." });
+    }
+    // Hall Ladder envelope: `{ hallLadder: { bout } }`. The bout fixes the
+    // duelist, their deck, the AI difficulty and the handicap server-side; it
+    // is only ever an ordinary Card Hall showdown, never a campaign or seal.
+    const hasLadderEnvelope = Object.prototype.hasOwnProperty.call(
+      body,
+      "hallLadder",
+    );
+    const ladderEnvelope =
+      body.hallLadder && typeof body.hallLadder === "object" && !Array.isArray(body.hallLadder)
+        ? (body.hallLadder as Record<string, unknown>)
+        : null;
+    const ladderBout = hasLadderEnvelope ? hallLadderBout(ladderEnvelope?.bout) : null;
+    if (
+      hasLadderEnvelope &&
+      (!ladderBout ||
+        hasDungeonEnvelope ||
+        hasEchoesEnvelope ||
+        body.keeperRun === true ||
+        body.externalStakes === true)
+    ) {
+      return res.status(400).json({ error: "Unknown Hall Ladder bout." });
     }
     const playerName = safeName(String(body.playerName ?? ""));
     if (!playerName)
@@ -540,12 +564,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .json({ error: "No legal 40-card Chronicle deck is available." });
     const resolvedDeck = resolved.deck;
 
+    // A ladder bout opens once every bout before it is won. Checked before the
+    // previous showdown is forfeited, so a refused start costs nothing. The
+    // settle re-checks the frontier inside its save mutation, so a race here
+    // can at most deal a duel that moves nothing.
+    let ladderDeck: string[] | null = null;
+    if (ladderBout) {
+      const save = await kv.get<Record<string, unknown>>(
+        `save:${playerName.trim().toLowerCase()}`,
+      );
+      const character = (save?.character ?? null) as Record<string, unknown> | null;
+      if (!identity.admin && !hallLadderBoutOpen(hallLadderOf(character), ladderBout.index)) {
+        return res
+          .status(409)
+          .json({ error: "Win the bout before this one first." });
+      }
+      ladderDeck = hallLadderOpponentDeck(ladderBout.duelist.id);
+      if (!ladderDeck) {
+        return res.status(500).json({ error: "That duelist has no deck." });
+      }
+    }
+
     const requestedDifficulty = String(body.difficulty ?? "medium");
-    const difficulty: ChronicleAiDifficulty = CHRONICLE_AI_DIFFICULTIES.includes(
-      requestedDifficulty as ChronicleAiDifficulty,
-    )
-      ? (requestedDifficulty as ChronicleAiDifficulty)
-      : "medium";
+    const difficulty: ChronicleAiDifficulty = ladderBout
+      ? ladderBout.bout.difficulty
+      : CHRONICLE_AI_DIFFICULTIES.includes(
+            requestedDifficulty as ChronicleAiDifficulty,
+          )
+        ? (requestedDifficulty as ChronicleAiDifficulty)
+        : "medium";
     const matchId = randomUUID();
     // Dungeon/event callers own their encounter stakes. Allowing a client to
     // opt out of Card Hall rewards cannot grant value or alter duel rules.
@@ -575,7 +622,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       Math.random,
       settlementMode,
       (state) => captureAiStep(aiSteps, state),
+      ladderBout && ladderDeck
+        ? { name: ladderBout.duelist.name, deck: ladderDeck, deckName: ladderBout.duelist.deckName }
+        : undefined,
+      ladderBout ? (state) => applyHallLadderBout(state, ladderBout.bout) : undefined,
     );
+    if (ladderBout) session.hallLadder = { bout: ladderBout.index };
     await kv.set(cardClashAiTokenKey(matchId), session, {
       ex: CARD_CLASH_AI_TOKEN_TTL_SECONDS,
     });

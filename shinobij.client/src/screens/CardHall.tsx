@@ -38,6 +38,8 @@ import { ChronicleDuelBoard } from "../components/ChronicleDuelBoard";
 import { CardClashTutorial } from "../components/CardClashTutorial";
 import { KeeperPath } from "../components/KeeperPath";
 import { KeeperPathEntrance } from "../components/KeeperPathEntrance";
+import { HallLadder } from "../components/HallLadder";
+import { hallLadderBout, hallLadderOf, hallLadderPortraitFor } from "../../../shared/hall-ladder-contract";
 import {
   advanceFreePlayQueueAuthority,
   FreePlayQueueError,
@@ -195,6 +197,8 @@ function CardHallInner({
   const [aiDifficulty, setAiDifficulty] =
     useState<ChronicleAiDifficulty>("medium");
   const [reward, setReward] = useState<ChronicleAiResult["reward"]>();
+  /** The Hall Ladder bout the current showdown was dealt for, or null for practice. */
+  const [ladderBout, setLadderBout] = useState<number | null>(null);
   const [error, setError] = useState("");
   /** Keeper's Path opens inside the Play tab, in place of the AI duel panel. */
   const [pathOpen, setPathOpen] = useState(false);
@@ -358,6 +362,9 @@ function CardHallInner({
         return;
       }
       setMatchId(resumableMatchId);
+      // The server says whether this was a Hall Ladder bout, so "Next bout"
+      // and the ladder result still work after a refresh.
+      setLadderBout(typeof result.session.hallLadderBout === "number" ? result.session.hallLadderBout : null);
       await presentSession(result, originatingPlayerName);
     } catch {
       if (cardHallMountedRef.current) setError("The showdown could not be resumed. Try again.");
@@ -374,6 +381,7 @@ function CardHallInner({
   async function begin(
     deckIds = savedValid ? savedDeck : migratedDeck,
     difficulty = aiDifficulty,
+    bout?: number,
   ) {
     if (busy) return;
     const originatingPlayerName = character.name;
@@ -385,6 +393,11 @@ function CardHallInner({
         originatingPlayerName,
         deckIds,
         difficulty,
+        false,
+        undefined,
+        undefined,
+        false,
+        bout,
       );
       if (chronicleResponseAuthority({
         mounted: cardHallMountedRef.current,
@@ -398,6 +411,7 @@ function CardHallInner({
         return;
       }
       setMatchId(result.matchId);
+      setLadderBout(typeof bout === "number" ? bout : null);
       setTab("play");
       await presentSession(result, originatingPlayerName);
     } catch {
@@ -417,14 +431,40 @@ function CardHallInner({
 
   // Starting over abandons an interrupted showdown, and the server forfeits it
   // (api/card-clash/ai-start.ts). Say so before it costs the player a loss.
-  async function startFreshShowdown() {
+  async function startFreshShowdown(bout?: number) {
     if (resumableMatchId && !(await gameConfirm("Start a new showdown? Your interrupted showdown will be forfeited and count as a loss."))) return;
-    await begin();
+    await begin(undefined, undefined, bout);
   }
 
   // A live AI showdown is a fight like any other: the menus lock
   // (lib/screen-guards.ts) and the Hall's own exits forfeit it (leaveShowdown).
   const liveShowdown = Boolean(matchId && duel && duel.status === "active");
+
+  // Hall Ladder result: what the bout did, and which bout "again" deals.
+  const ladderRecord = hallLadderOf(character as unknown as Record<string, unknown>);
+  const ladderSummary = reward?.hallLadder;
+  const ladderCurrent = ladderBout === null ? null : hallLadderBout(ladderBout);
+  const ladderNext = ladderBout === null ? null : hallLadderBout(ladderBout + 1);
+  const ladderAgainBout = ladderBout === null
+    ? null
+    : ladderSummary?.advanced && ladderNext ? ladderNext.index : ladderBout;
+  // Without the server's settle receipt the Hall does not guess what the bout did.
+  const ladderPaid = ladderSummary?.chroniclePoints
+    ? ` +${ladderSummary.chroniclePoints} Chronicle Points.`
+    : "";
+  const ladderNote = !ladderCurrent || !duel || duel.status !== "complete" || !reward
+    ? ""
+    : ladderSummary?.advanced
+      ? (!ladderNext
+        ? "You have beaten every duelist in the Hall Tower."
+        : ladderNext.duelistIndex !== ladderCurrent.duelistIndex
+          ? `${ladderCurrent.duelist.name} is beaten. ${ladderNext.duelist.name}, ${ladderNext.duelist.title}, is waiting for you.`
+          : `Bout ${ladderCurrent.round + 1} won. Bout ${ladderNext.round + 1} against ${ladderCurrent.duelist.name} is open.`) + ladderPaid
+      : ladderSummary
+        ? "You had already won this bout, so the ladder did not move and it paid no points."
+        : duel.winner === duel.viewerSide
+          ? "A win this quick does not count on the ladder."
+          : "You can try this bout again as many times as you like.";
   useEffect(() => {
     setScreenFightActive("shinobiTiles", liveShowdown);
     return () => setScreenFightActive("shinobiTiles", false);
@@ -666,21 +706,23 @@ function CardHallInner({
                 ) : (
                   <p>The result has been entered in the Chronicle.</p>
                 )}
+                {ladderNote ? <p>{ladderNote}</p> : null}
                 <button
                   onClick={() => {
                     setDuel(null);
                     setMatchId(null);
                     setReward(undefined);
+                    setLadderBout(null);
                   }}
                 >
                   Return to Hall
                 </button>
                 <button
-                  onClick={() => void begin()}
+                  onClick={() => void begin(undefined, undefined, ladderAgainBout ?? undefined)}
                   disabled={busy}
                   style={{ marginLeft: 8 }}
                 >
-                  Play again
+                  {ladderAgainBout === null ? "Play again" : ladderAgainBout === ladderBout ? "Try the bout again" : "Next bout"}
                 </button>
               </div>
             ) : null}
@@ -693,10 +735,11 @@ function CardHallInner({
                 character.avatarImage ||
                 sharedAvatarFor(sharedImages, character.name)
               }
-              opponentAvatar={chronicleDuelistAvatar(
-                duel[duel.viewerSide === "p1" ? "p2" : "p1"].name,
-                sharedImages,
-              )}
+              opponentAvatar={
+                // Hall duels are always against the AI, so a ladder name is a ladder duelist (also after a resume).
+                hallLadderPortraitFor(duel[duel.viewerSide === "p1" ? "p2" : "p1"].name)
+                ?? chronicleDuelistAvatar(duel[duel.viewerSide === "p1" ? "p2" : "p1"].name, sharedImages)
+              }
               busy={busy}
               aiActing={aiActing}
               error={error}
@@ -715,6 +758,14 @@ function CardHallInner({
                 Limited Scroll, six visible turn phases and the opening-turn draw
                 rule.
               </p>
+              <HallLadder
+                key={character.name}
+                owner={character.name}
+                record={ladderRecord}
+                busy={busy}
+                onFight={(bout) => void startFreshShowdown(bout)}
+              />
+              <h3 style={{ margin: "0 0 6px" }}>Practice duel</h3>
               {!savedValid ? (
                 <p>
                   Your saved deck uses retired rules. The Hall can deal a fixed
