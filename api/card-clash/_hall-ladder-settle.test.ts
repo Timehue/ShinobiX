@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
 import { CHRONICLE_FIXED_FALLBACK_DECK, STARTING_LIFE_POINTS } from "../../shared/chronicle-duel.js";
 import { HALL_LADDER_DUELISTS } from "../../shared/hall-ladder-contract.js";
+import { HALL_LADDER_DECK_NAMES } from "./_hall-ladder.js";
 
 process.env.NODE_ENV = "test";
 process.env.SHINOBIX_QA_MEMORY_KV = "1";
@@ -108,7 +109,7 @@ test("the first bout is sealed with the duelist, their difficulty and their deck
     assert.equal(session.state.p2.name, HALL_LADDER_DUELISTS[0].name);
     assert.equal(session.state.p2.lifePoints, STARTING_LIFE_POINTS);
     const projected = started.body.session as { aiDeckName: string; hallLadderBout?: number };
-    assert.equal(projected.aiDeckName, HALL_LADDER_DUELISTS[0].deckName);
+    assert.equal(projected.aiDeckName, HALL_LADDER_DECK_NAMES.apprentice);
     assert.equal(projected.hallLadderBout, 0);
     // A resume (action "state") still names the bout, so the Hall can offer "Next bout".
     const resumed = await call(aiMove, { matchId, action: "state" });

@@ -21,6 +21,17 @@ const DECK_SOURCE: Readonly<Record<string, string>> = Object.freeze({
     champion: "echoes-10-halden",
 });
 
+/** Board names for each duelist's deck. Server-only: the client never shows
+ *  them before a duel, so they stay out of the browser bundle. */
+export const HALL_LADDER_DECK_NAMES: Readonly<Record<string, string>> = Object.freeze({
+    apprentice: "First Lessons",
+    scrollkeeper: "Old Ledgers",
+    swifthand: "Quick Feathers",
+    stonewall: "Unbroken Line",
+    hiddenmist: "Veiled Answers",
+    champion: "Champion's Due",
+});
+
 /** The deck a ladder duelist plays, copied so a match can shuffle it. */
 export function hallLadderOpponentDeck(duelistId: string): string[] | null {
     const source = DECK_SOURCE[duelistId];

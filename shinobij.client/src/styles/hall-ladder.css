@@ -1,7 +1,7 @@
 .hall-ladder { margin: 4px 0 18px; text-align: left; }
-.hall-ladder h3 { margin: 0 0 4px; text-align: center; letter-spacing: .04em; }
+.hall-ladder h3 { margin: 0 0 4px; text-align: center; }
 .hall-ladder__progress { margin: 0 0 10px; text-align: center; color: #9aa3b2; }
-.hall-ladder__arrival { margin: 0 auto 10px; max-width: 420px; text-align: center; color: #f3cf7a; font-weight: 600; }
+.hall-ladder__arrival { margin: 0 0 10px; text-align: center; color: #f3cf7a; font-weight: 600; }
 .hall-ladder__climb { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; justify-content: center; }
 
 /* The tower painting. Each reached floor's duelist stands on it as a painted

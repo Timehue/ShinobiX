@@ -464,7 +464,7 @@ function CardHallInner({
         ? "You had already won this bout: no climb and no points."
         : duel.winner === duel.viewerSide
           ? "A win this quick does not count on the ladder."
-          : "You can try this bout again as many times as you like.";
+          : "You can try this bout again any time.";
   useEffect(() => {
     setScreenFightActive("shinobiTiles", liveShowdown);
     return () => setScreenFightActive("shinobiTiles", false);

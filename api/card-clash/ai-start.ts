@@ -38,7 +38,7 @@ import {
 import { keeperNode, keeperPathOf } from "../../shared/keeper-path-contract.js";
 import { applyKeeperModifiers, KEEPER_MATCH_BINDING_TTL_SECONDS, keeperMatchBindingKey, keeperOpponentDeck } from "./_keeper-path.js";
 import { hallLadderBout, hallLadderBoutOpen, hallLadderOf } from "../../shared/hall-ladder-contract.js";
-import { applyHallLadderBout, hallLadderOpponentDeck } from "./_hall-ladder.js";
+import { applyHallLadderBout, HALL_LADDER_DECK_NAMES, hallLadderOpponentDeck } from "./_hall-ladder.js";
 
 function submittedIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -623,7 +623,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       settlementMode,
       (state) => captureAiStep(aiSteps, state),
       ladderBout && ladderDeck
-        ? { name: ladderBout.duelist.name, deck: ladderDeck, deckName: ladderBout.duelist.deckName }
+        ? { name: ladderBout.duelist.name, deck: ladderDeck, deckName: HALL_LADDER_DECK_NAMES[ladderBout.duelist.id] }
         : undefined,
       ladderBout ? (state) => applyHallLadderBout(state, ladderBout.bout) : undefined,
     );

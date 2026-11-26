@@ -28,8 +28,6 @@ export interface HallLadderDuelist {
     id: string;
     name: string;
     title: string;
-    /** Board name for the duelist's deck. */
-    deckName: string;
     bouts: readonly [HallLadderBout, HallLadderBout, HallLadderBout];
 }
 
@@ -41,27 +39,27 @@ const bout = (difficulty: ChronicleAiDifficulty, opponentLifeBonus = 0): HallLad
 /** The ladder in climbing order. Ids are stable: the server maps each to a deck. */
 const DUELISTS: HallLadderDuelist[] = [
     {
-        id: "apprentice", name: "Kiri", title: "The Hall Apprentice", deckName: "First Lessons",
+        id: "apprentice", name: "Kiri", title: "The Hall Apprentice",
         bouts: [bout("easy"), bout("easy", 1_000), bout("medium")],
     },
     {
-        id: "scrollkeeper", name: "Tobei", title: "The Scroll Keeper", deckName: "Old Ledgers",
+        id: "scrollkeeper", name: "Tobei", title: "The Scroll Keeper",
         bouts: [bout("easy"), bout("medium"), bout("medium", 2_000)],
     },
     {
-        id: "swifthand", name: "Suzume", title: "The Swift Hand", deckName: "Quick Feathers",
+        id: "swifthand", name: "Suzume", title: "The Swift Hand",
         bouts: [bout("medium"), bout("medium", 2_000), bout("hard")],
     },
     {
-        id: "stonewall", name: "Gensai", title: "The Stone Wall", deckName: "Unbroken Line",
+        id: "stonewall", name: "Gensai", title: "The Stone Wall",
         bouts: [bout("medium", 2_000), bout("hard"), bout("hard", 2_000)],
     },
     {
-        id: "hiddenmist", name: "Ayame", title: "Of the Hidden Mist", deckName: "Veiled Answers",
+        id: "hiddenmist", name: "Ayame", title: "Of the Hidden Mist",
         bouts: [bout("hard"), bout("hard", 2_000), bout("hard", 3_000)],
     },
     {
-        id: "champion", name: "Kurogane", title: "Champion of the Card Hall", deckName: "Champion's Due",
+        id: "champion", name: "Kurogane", title: "Champion of the Card Hall",
         bouts: [bout("hard", 2_000), bout("hard", 3_000), bout("hard", 4_000)],
     },
 ];

@@ -11,7 +11,8 @@ import {
 import { TUTORIAL_PAGES } from "../lib/card-clash-tutorial-pages";
 import "../styles/hall-ladder.css";
 
-const DIFFICULTY_LABEL = { easy: "Easy", medium: "Medium", hard: "Hard" } as const;
+/** "easy" -> "Easy". */
+const label = (word: string) => word[0].toUpperCase() + word.slice(1);
 
 /** Each duelist's lesson, in ladder order: its title, then the Card Clash
  *  tutorial page and the lines of it the duelist teaches. Reading the tutorial
@@ -179,7 +180,7 @@ export function HallLadder({ owner, record, busy, onFight }: {
                                 return (
                                     <li key={round} className={won ? "is-won" : index === nextBout ? "is-next" : undefined}>
                                         <span>
-                                            Bout {round + 1}: {DIFFICULTY_LABEL[bout.difficulty]}
+                                            Bout {round + 1}: {label(bout.difficulty)}
                                             {bout.opponentLifeBonus > 0 ? `, +${bout.opponentLifeBonus.toLocaleString("en-US")} Health` : ""}
                                             {won ? " (won)" : ` · first win ${hallLadderFirstClearCp(index)} Chronicle Points`}
                                         </span>

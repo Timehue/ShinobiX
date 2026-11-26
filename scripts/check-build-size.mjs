@@ -1562,8 +1562,9 @@ const COAST_CLUES_JS_CSS_FAIL_BYTES = COAST_TOWN_JS_CSS_FAIL_BYTES + 7 * 1024;
 // hit was a class built at runtime). The owner was shown the figure and approved "a named 8 KiB
 // size-limit step for the Hall Tower". With the production settings the merge then read
 // 9,988,661 B; the tower's own trims (compacted styles, lessons read from the Card Clash
-// tutorial pages instead of copied, art paths built from ids, shorter status lines) brought it to
-// 9,987,182 B, 269 B under. All of it loads only inside the Card Hall. Revert this line to drop it.
+// tutorial pages instead of copied, art paths built from ids, deck names kept server-side,
+// shorter status lines) brought it to 9,987,238 B, 213 B under, after main's #169 (+~240 B).
+// All of it loads only inside the Card Hall. Revert this line to drop it.
 const HALL_LADDER_JS_CSS_FAIL_BYTES = COAST_CLUES_JS_CSS_FAIL_BYTES + 8 * 1024;
 const EFFECTIVE_JS_CSS_FAIL_BYTES = Math.max(
     TOTAL_JS_CSS_FAIL_BYTES, CHRONICLE_JS_CSS_FAIL_BYTES, HARVESTING_JS_CSS_FAIL_BYTES,

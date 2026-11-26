@@ -14,7 +14,7 @@ import {
     hallLadderOf,
     settleHallLadderWin,
 } from "../../shared/hall-ladder-contract.js";
-import { applyHallLadderBout, hallLadderOpponentDeck } from "./_hall-ladder.js";
+import { applyHallLadderBout, HALL_LADDER_DECK_NAMES, hallLadderOpponentDeck } from "./_hall-ladder.js";
 
 // process.cwd(): api tests also compile into the CommonJS server build.
 const ROOT = process.cwd();
@@ -30,6 +30,7 @@ test("every duelist plays a legal 40-card deck and has its portrait shipped", ()
         assert.ok(fs.existsSync(path.join(ROOT, "shinobij.client/public", hallLadderArt(duelist.id, true))), `${duelist.id} figure exists`);
     }
     assert.equal(hallLadderOpponentDeck("nobody"), null);
+    assert.deepEqual(Object.keys(HALL_LADDER_DECK_NAMES).sort(), HALL_LADDER_DUELISTS.map((d) => d.id).sort(), "every duelist has a deck name");
 });
 
 test("ids are unique, each duelist's bouts climb, and each final bout is at least the last one", () => {
