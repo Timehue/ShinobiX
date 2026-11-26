@@ -146,7 +146,7 @@ const maxCoastFloorArtBytes = 12_193_470;
 // Coast state paintings: six atlas markers, eight standees and two scenes add exactly
 // 592,558 B. Owner-approved 2026-11-20: shown the sixteen files and their total in the
 // server session, the owner kept the allowance ("Yes, keep both").
-const maxCoastSiteArtBytes = 19_035_472;
+const maxCoastSiteArtBytes = 19_035_472 + 15_058;
 // Four approved Stair Houses paintings, including the versioned floor.
 const maxCoastSettlementArtBytes = 651_190;
 // Settlement and hall pass. Owner: "Apply the measured allowances" (2026-11-21). Includes the courtyard, halls, rooms and residents.

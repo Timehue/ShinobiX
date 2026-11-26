@@ -1,3 +1,6 @@
+import { coastLayout, COAST_WORLD_VERSION } from '../../shared/coast-world.js';
+import { coastTileWalkable } from '../../shared/coast-world-rules.js';
+import { COAST_RESOURCE_NODES } from '../../shared/coast-resource-nodes.js';
 import { randomInt } from 'node:crypto';
 import { addOwned, countOwned, removeOwned } from '../craft/_forge.js';
 import { gatheringTool, gatheringToolRemaining, useGatheringTool } from '../../shared/gathering-tools.js';
@@ -33,7 +36,12 @@ export function resourcePositionError(player: OnlinePlayer | null, node: Resourc
 }
 export function resourceAdmissionError(character: Record<string, unknown>, node: ResourceNode, now: number, shared = false) {
     // A quest site stands on the coast, which has its own floors (api/quests/_sites.ts).
-    if (!(questSite(node.id) ? questSiteWorkable(node) : validResourceNodeTerrain(node))) return 'This gathering spot is no longer available.';
+    const coastal = COAST_RESOURCE_NODES.find(candidate => candidate.id === node.id);
+    const layout = coastal && coastLayout(coastal.sector);
+    const workable = coastal ? layout && coastal.layoutVersion === COAST_WORLD_VERSION &&
+        coastal.sector === node.sector && coastal.approach === node.approach && coastTileWalkable(layout.mask, node.approach)
+        : questSite(node.id) ? questSiteWorkable(node) : validResourceNodeTerrain(node);
+    if (!workable) return 'This gathering spot is no longer available.';
     if (node.dormant) return 'Nothing is growing here right now. Wild plants spring up somewhere new every half hour.';
     const state = readResourceGathering(character.resourceGathering);
     if (state.active) return 'Finish or cancel your current gathering attempt first.';

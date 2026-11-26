@@ -39,7 +39,7 @@ export default async function handler(req:ApiRequest,res:ApiResponse){
         if(!identity.admin&&identity.name!==player)return res.status(403).json({error:'You can only act for your own character.'});
         if(!(await enforceRateLimitKv(req,res,'sector-buildings',req.method==='GET'?45:30,60_000,player,{strict:true})))return;
         if(req.method==='GET'){
-            const sector=Number(body.sector);if(!Number.isInteger(sector)||(!isPlayableWildSector(sector)&&sector!==99))return res.status(400).json({error:'This sector is not on the public road register.'});
+            const sector=Number(body.sector);if(!Number.isInteger(sector)||(!isPlayableWildSector(sector)&&sector!==99&&sector!==101))return res.status(400).json({error:'This sector is not on the public road register.'});
             const view=await readBuildingWorld(kv,player,sector,Date.now());if(!view)return res.status(404).json({error:'Your character save was not found.'});
             return res.status(200).json({ok:true,view,serverNow:view.serverNow});
         }

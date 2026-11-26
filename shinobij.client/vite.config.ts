@@ -16,6 +16,16 @@ const STATIC_LITERAL_TABLES: ReadonlyArray<readonly [string, readonly string[]]>
     ['/src/lib/first-pact-world.ts', ['FIRST_PACT_ARCHITECTURE', 'FIRST_PACT_NPCS']],
     ['/src/lib/first-pact-interiors.ts', ['FIRST_PACT_INTERIORS']],
     ['/shared/resource-nodes.ts', ['placements']],
+    ['/shared/coast-resource-nodes.ts', ['placements']],
+    ['/shared/sector-geo.ts', ['SECTOR_PLACES']],
+    ['/shared/sector-links.ts', ['SECTOR_POINTS', 'SECTOR_ROAD_PAIRS']],
+    ['/shared/sector-life-standing.ts', ['LIFE_STANDING_CODES']],
+    ['/shared/resource-node-terrain.ts', ['RESOURCE_MEADOW_TILES', 'RESOURCE_ROCK_TILES']],
+    ['/src/lib/gathering-vn.ts', ['FIND_SCENES']],
+    ['/src/components/OutpostResourcePanel.tsx', ['PANEL']],
+    ['/src/data/professions.ts', ['PROFESSION_INFO']],
+    ['/src/lib/hunt-encounter.ts', ['SIGNS']],
+    ['/src/lib/wanderers.ts', ['WANDERER_QUEST_CATALOG']],
     ['/src/data/sector-structure-placements.ts', ['STRONGHOLD_BY_ART', 'RIFT_BY_ART']],
 ];
 import { progressionCatalogDelivery } from './scripts/progression-catalog-delivery.mjs';
@@ -1512,6 +1522,15 @@ export default defineConfig({
                         // (2026-11-11: +1 startup file, +1,245 B total).
                         '/src/lib/shared-avatar.ts',
                         '/src/lib/own-avatar.ts',
+                        // The shell already loads these character rules and reward
+                        // helpers. Share their existing startup chunk with field
+                        // screens so every visit avoids the extra module requests.
+                        '/shared/story-combat-identity.ts',
+                        '/src/lib/profession-mastery.ts',
+                        '/src/lib/gear-drop-watch.ts',
+                        '/src/lib/gear-drop-store.ts',
+                        '/src/lib/single-flight.ts',
+                        '/src/lib/ambiguous-action.ts',
                     ].some((modulePath) => normalizedId.endsWith(modulePath))) {
                         return 'world-authority';
                     }

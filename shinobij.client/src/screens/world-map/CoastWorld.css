@@ -12,6 +12,36 @@
 .coast-world-status { margin: 0; font-size: .84rem; color: var(--sj-text-secondary); }
 .coast-world-status:empty { display: none; }
 
+.coast-work-routes { margin: .6rem 0; }
+.coast-work-routes summary { cursor: pointer; padding: .6rem 0; color: var(--sj-gold-bright); }
+.coast-work-routes label { display: flex; align-items: center; gap: .6rem; }
+.coast-work-routes select { min-height: 44px; }
+.coast-work-routes ul { list-style: none; margin: .5rem 0; padding: 0; display: grid; gap: .35rem; }
+.coast-work-routes li { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .75rem; }
+.coast-work-routes li span { color: var(--sj-text-secondary); }
+.coast-watch { position: absolute; z-index: 2; padding: 0; width: 9%; height: 10%; min-height: 0 !important; border: 0; background: transparent; box-shadow: none; cursor: pointer; }
+.coast-watch:focus-visible { outline: 2px solid var(--sj-gold-bright); }
+.coast-watch-skiff { left: 10%; top: 42%; width: 11%; height: 11%; }
+.coast-watch-skiff[data-order="1"] { left: 1%; top: 57%; }
+.coast-watch-skiff[data-order="2"] { left: 15%; top: 30%; }
+.coast-watch-skiff img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 1px 1px #183332); }
+.coast-watch-pennant { left: 24%; top: 10%; }
+.coast-watch-banner { left: 41%; top: 23%; }
+.coast-watch-lantern { left: 59%; top: 20%; }
+.coast-watch-sign { position: absolute; inset: 12% 22%; border-left: 2px solid #66513a; filter: drop-shadow(0 1px 1px #262117); }
+.coast-watch-sign i { position: absolute; left: 0; top: 6%; width: 100%; height: 38%; background: #ecb854; clip-path: polygon(0 0,100% 23%,0 100%); }
+.coast-watch-sign i + i { display: none; }
+.coast-watch-pennant[data-order="1"] i:first-child { background: #d56b4e; transform: rotate(16deg); }
+.coast-watch-pennant[data-order="1"] i + i { display: block; top: 32%; background: #e7c98f; transform: rotate(-19deg); }
+.coast-watch-pennant[data-order="2"] i { background: #ccf0d9; clip-path: polygon(0 0,100% 10%,62% 47%,98% 78%,0 100%); }
+.coast-watch-banner i { height: 78%; background: #7ca47a; clip-path: polygon(0 0,95% 12%,90% 100%,48% 77%,0 95%); }
+.coast-watch-banner[data-order="1"] i { background: #b2b9ba; }
+.coast-watch-banner[data-order="2"] i { background: linear-gradient(60deg,#b2b9ba 50%,#7ca47a 51%); }
+.coast-watch-lantern .coast-watch-sign { inset: 30%; border: 2px solid #695c45; border-radius: 35%; background: #f9eaca; box-shadow: 0 0 4px 2px #ffe4a0; }
+.coast-watch-lantern .coast-watch-sign i { display: none; }
+.coast-watch-lantern[data-order="1"] .coast-watch-sign { background: #e79a37; box-shadow: 0 0 4px 2px #dba13a; }
+.coast-watch-lantern[data-order="2"] .coast-watch-sign { inset-inline: 12%; box-shadow: 0 0 7px 4px #fff0c1; }
+
 /* Side by side when there is room for both; the board first and full width when there is not
    (a phone, or the desktop column with the menu open). */
 
@@ -65,6 +95,13 @@ img.coast-plot-contest { right: -18%; top: -18%; width: 58%; height: 72%; }
 .coast-site-body h3 { margin: 0; font: 500 1.5rem/1.15 Georgia, serif; color: var(--sj-gold-bright); }
 .coast-site-body p { margin: 0; line-height: 1.5; color: var(--sj-text-secondary); }
 .coast-gather { display: grid; gap: 8px; }
+.coast-room-duty { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--sj-border-soft); border-radius: 6px; }
+.coast-room-duty h4 { margin: 0; color: var(--sj-gold-bright); font: 500 1.15rem/1.2 Georgia, serif; }
+.coast-room-duty button, .coast-room-duty summary { min-height: 44px; white-space: normal; }
+.coast-room-duty summary { cursor: pointer; align-content: center; }
+.coast-duty-controls { display: grid; gap: 8px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.coast-duty-choices { display: flex; gap: 8px; flex-wrap: wrap; }
+.coast-duty-choices output { flex-basis: 100%; color: var(--sj-gold-bright); }
 
 @media (max-width: 820px) {
     .coast-side { max-width: none; }
@@ -169,3 +206,26 @@ img.coast-plot-contest { right: -18%; top: -18%; width: 58%; height: 72%; }
     height: 14.8%; width: 8%; min-width: 44px;
 }
 .stairs-person.stairs-seated::before { display: none; }
+
+.coast-work-actions{display:flex;gap:.6rem;flex-wrap:wrap}
+.coast-site.coast-work-point{background:#342c20;color:#ffe39f;border:1px solid #c3a55e;border-radius:50%;font-weight:bold}
+.coast-work-prop,.coast-net-rack{pointer-events:none;position:absolute;display:block;filter:drop-shadow(0 2px 2px #241c17)}
+.coast-work-prop{left:62%;bottom:8%;width:35%;height:26%;min-width:9px;min-height:8px}
+.prop-net,.coast-net-rack{border-inline:3px solid #80684c;background:repeating-linear-gradient(45deg,transparent 0 3px,#dbc398 3px 4px),repeating-linear-gradient(-45deg,transparent 0 3px,#ad9673 3px 4px);transform:rotate(-10deg)}
+.prop-line{border:2px solid #d3bc85;border-radius:60%;box-shadow:2px 2px 0 #766b52}
+.prop-tracks{border-radius:60%;background:#684931;box-shadow:4px -4px 0 -1px #a99064}
+.prop-cairn{background:linear-gradient(#c9c7ab 30%,#706c64 30% 55%,#939383 55%);clip-path:polygon(38% 0,64% 0,70% 34%,81% 38%,83% 68%,100% 73%,100% 100%,0 100%,0 75%,16% 67%,18% 39%,32% 32%)}
+.prop-sample{background:#adad96;border:2px solid #675139;transform:rotate(12deg)}
+.coast-work-prop.is-finished{transform:rotate(0);border-bottom:3px solid #d9e1b4}
+.coast-net-rack{inset:5% 15% 20%;transform:none}
+.coast-net-rack.stage-0{transform:skew(-18deg);background:none}
+.coast-net-rack.stage-1{background:none;border-top:3px solid #997744}
+.coast-net-rack.stage-2{background-size:65% 100%;background-repeat:no-repeat}
+
+@media (prefers-reduced-motion:no-preference){
+    .coast-work-prop:not(.is-finished){animation:coast-work-hand 4.6s ease-in-out infinite;transform-origin:left bottom}
+}
+@keyframes coast-work-hand{0%,45%,100%{rotate:0deg}55%,75%{rotate:-12deg;translate:0 -2px}}
+.prop-line.is-finished,.prop-sample.is-finished{background:#e8d9ae;border:1px solid #7d6442;border-radius:0;box-shadow:inset 0 -2px #a5875e}
+.prop-tracks.is-finished{background:#c48c59;border-radius:0;clip-path:polygon(0 0,100% 24%,20% 65%,18% 100%,0 100%);box-shadow:none}
+.prop-cairn.is-finished{background:linear-gradient(#f6e4aa 38%,#706c64 38% 58%,#939383 58%)}

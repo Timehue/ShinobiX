@@ -14,7 +14,7 @@ export function useSectorBuildings(player:string,sector:number,commit:VersionedC
     useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
     const accept=(view:NonNullable<Awaited<ReturnType<typeof requestBuildings>>['view']>,name:string)=>setEntry(old=>mergeBuildingView(old,view,name));
     useEffect(()=>{
-        if(!isPlayableWildSector(sector)&&sector!==99)return;
+        if(!isPlayableWildSector(sector)&&sector!==99&&sector!==101)return;
         let alive=true,timer=0,revision=0,pendingRead:AbortController|undefined;
         const stop=()=>{revision++;clearTimeout(timer);pendingRead?.abort();};
         const load=async()=>{

@@ -6,6 +6,7 @@ process.env.SHINOBIX_QA_MEMORY_KV = '1';
 process.env.SESSION_SECRET = 'coast-world-test-secret';
 
 import { COAST_WORLD, OPEN_COAST_SECTOR_IDS } from '../../shared/coast-world.js';
+import { roomDuties, type RoomDuty } from '../../shared/coast-room-duties.js';
 import type { CoastSite } from '../../shared/coast-world-rules.js';
 import { coastTileWalkable } from '../../shared/coast-world-rules.js';
 
@@ -24,7 +25,7 @@ before(async () => {
     handler = (await import('./world.js')).default as unknown as Handler;
 });
 
-async function call(method: string, name?: string) {
+async function call(method: string, name?: string, query: Record<string, string> = {}) {
     const out = { status: 200, body: {} as Json, headers: {} as Record<string, string> };
     const res = {
         setHeader(key: string, value: string) { out.headers[key.toLowerCase()] = value; return res; },
@@ -32,7 +33,7 @@ async function call(method: string, name?: string) {
         json(value: Json) { out.body = value; return res; },
         end() { return res; },
     };
-    await handler({ method, query: {}, headers: name ? { 'x-player-token': token(name) } : {}, socket: { remoteAddress: '127.4.9.3' } } as never, res as never);
+    await handler({ method, query, headers: name ? { 'x-player-token': token(name) } : {}, socket: { remoteAddress: '127.4.9.3' } } as never, res as never);
     return out;
 }
 
@@ -68,14 +69,30 @@ test('every open sector is drawn with its floor, its trails and its places', asy
     assert.equal(body.sectors['107'].sites.some(site => site.boat || site.gather), false);
 });
 
+test('visitors see the current watch independently of the cached atlas', async () => {
+    const { kv } = await import('../_storage.js');
+    const { COAST_WATCHES } = await import('../../shared/coast-watch.js');
+    for (const watch of Object.keys(COAST_WATCHES)) {
+        await kv.set('world:coast-watch:' + watch, { order: 2 });
+        const observation = await call('GET', 'coastreader', { watch });
+        assert.equal(observation.status, 200);
+        assert.equal(observation.headers['cache-control'], 'no-store');
+        assert.deepEqual(observation.body, { order: 2 });
+        await kv.set('world:coast-watch:' + watch, { order: 30 });
+        assert.deepEqual((await call('GET', 'coastreader', { watch })).body, { order: null });
+    }
+    assert.equal((await call('GET', 'coastreader', { watch: 'unknown' })).status, 400);
+});
+
 test('each building sends its complete walkable rooms and outdoor return', async () => {
-    const { sectors } = (await call('GET', 'coastreader')).body as { sectors: Record<string, { sites: CoastSite[] }> };
+    const { sectors } = (await call('GET', 'coastreader')).body as { sectors: Record<string, { sites: (CoastSite & { workshop?: RoomDuty })[] }> };
     for (const [sector, layout] of Object.entries(COAST_WORLD.layouts)) {
         for (const source of Object.values(layout.sites)) {
             const site = sectors[sector].sites.find(entry => entry.id === source.id);
             assert.ok(site, source.id);
             assert.equal(site.returnTile, source.returnTile);
             assert.deepEqual(site.floors ?? [], source.floors, source.id);
+            assert.deepEqual(site.workshop, roomDuties[source.id], source.id);
         }
     }
 });

@@ -202,11 +202,15 @@
    "sha256": "4350cc549a002c73e40c3749f561cca29ec1128dbbaa7b92c20839e114136781"
   }
  },
- "siteBytes": 19686662,
+ "siteBytes": 19701720,
  "files": {
   "atlas/hushstone-basin-v2.webp": {
    "bytes": 525230,
    "sha256": "4c570a4170cfc4a6f447c8680b91c145792de979387e9ce57b2f6411dcb0e500"
+  },
+  "boats/reedwatch-skiff-v1.webp": {
+   "bytes": 15058,
+   "sha256": "d41e6efa118bda022588b7ba6b560b754d1c3e2358e27be9c0d462b9358c358b"
   },
   "boats/shard-crossing-v1.webp": {
    "bytes": 55426,

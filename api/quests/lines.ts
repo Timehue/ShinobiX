@@ -12,6 +12,9 @@ import { isPlayerSaveVersionConflict } from '../save/_projected-write.js';
 import { grantPoolPoints } from '../story/_settle.js';
 import { sectorBuilding } from '../../shared/sector-buildings.js';
 import { SECTOR_TILE_COUNT } from '../../shared/sector-links.js';
+import { roomDutyAction } from './_room-duty.js';
+import { roomDuties, lastDutyOrder } from '../../shared/coast-room-duties.js';
+import { coastJob } from '../../shared/coast-work.js';
 import { coastSite } from '../../shared/coast-world.js';
 import type { QuestLinePlace } from './_types.js';
 import { questLineRyo } from './_catalog.js';
@@ -110,7 +113,7 @@ function engineDeps(playerName: string): QuestEngineDeps {
 /** Every refusal is worded here, on the server (_refusals.ts). A reply's own `error` always wins over these. */
 const REFUSAL_SENTENCES = QUEST_REFUSAL_SENTENCES;
 
-const ACTIONS = new Set(['list', 'recall', 'accept', 'advance', 'make', 'examine', 'choose', 'claim', 'abandon', 'inspect', 'reset']);
+const ACTIONS = new Set(['list', 'room-duty', 'work', 'recall', 'accept', 'advance', 'make', 'examine', 'choose', 'claim', 'abandon', 'inspect', 'reset']);
 const ADMIN_ACTIONS = new Set(['inspect', 'reset']);
 const num = (value: unknown) => (Number.isFinite(Number(value)) ? Number(value) : 0);
 
@@ -135,7 +138,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
             return res.status(403).json({ error: 'You can only act for your own account.' });
         }
         if (ADMIN_ACTIONS.has(action) && !identity.admin) return res.status(403).json({ error: 'Admin only.' });
-        if (!identity.admin && !(await enforceRateLimitKv(req, res, `quest-lines-${action}`, 30, 60_000, identity.name))) return;
+        const benchEdit = action === 'room-duty' && body.command === 'adjust';
+        if (!identity.admin && !(await enforceRateLimitKv(req, res, benchEdit ? 'quest-lines-bench-edit' : `quest-lines-${action}`, benchEdit ? 90 : 30, 60_000, identity.name))) return;
 
         const questId = typeof body.questId === 'string' ? body.questId.slice(0, 80) : '';
         const optionKey = typeof body.optionKey === 'string' ? body.optionKey : '';
@@ -144,7 +148,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         const clueKey = typeof body.clueKey === 'string' ? body.clueKey.slice(0, 40) : '';
         // A reset may name a quest the catalogue has since dropped: the stored
         // record is what it clears.
-        if (action !== 'list' && action !== 'inspect' && action !== 'reset' && !Object.hasOwn(activeQuestCatalogue().lines, questId)) {
+        if (action !== 'list' && action !== 'work' && action !== 'room-duty' && action !== 'inspect' && action !== 'reset' && !Object.hasOwn(activeQuestCatalogue().lines, questId)) {
             return res.status(400).json({ error: 'Unknown quest.' });
         }
         if (action === 'reset' && !questId) return res.status(400).json({ error: 'Name the quest to reset.' });
@@ -161,8 +165,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         const forget = body.forget === true;
         let audit: { before: unknown; after: unknown } | null = null;
 
-        const committed = await mutatePlayerSave<Reply>(playerName, ({ record: save, character }): PlayerSaveMutation<Reply> => {
+        const committed = await mutatePlayerSave<Reply>(playerName, (ctx): PlayerSaveMutation<Reply> | Promise<PlayerSaveMutation<Reply>> => {
+            const { record: save, character } = ctx;
             const record = parseQuestLines(save.questLines);
+            if (action === 'room-duty') return roomDutyAction(ctx, record, questId, body);
             const inClan = typeof character.clan === 'string' && character.clan.trim().length > 0;
             if (action === 'inspect') {
                 return { ok: true, write: false, character, value: { body: { ok: true, marks: questLineMarks(record), active: record.active, done: record.done }, wrote: false } };
@@ -184,7 +190,14 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
             if (action === 'list') {
                 const view = questLineClientViews(deps, record, character, { level: num(character.level), inClan });
                 const sites = questSiteViews(save, character, Date.now());
-                return { ok: true, write: false, character, value: { body: { ok: true, ...view, sites }, wrote: false } };
+                const notebook: Record<string, { active: boolean; result?: string }> = {};
+                for (const [id, progress] of Object.entries(record.roomDuties ?? {})) {
+                    const duty = Object.hasOwn(roomDuties, id) && roomDuties[id];
+                    if (!duty) continue;
+                    const last = lastDutyOrder(duty, progress);
+                    notebook[id] = { active: progress.tick % 4 !== 3, ...(last === undefined ? {} : { result: duty.cases[last].result }) };
+                }
+                return { ok: true, write: false, character, value: { body: { ok: true, ...view, sites, notebook, coastWork: record.coastWork ?? {} }, wrote: false } };
             }
             if (action === 'recall') {
                 // A finished quest's whole story, to be read again. It changes nothing and is sent only on asking,
@@ -198,6 +211,24 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
             // Read where the server holds the player at the moment of the
             // decision, inside the save lock, so a move cannot race the check.
             const presence = onlineStore.get(playerName) ?? null;
+            if (action === 'work') {
+                const job = coastJob(questId);
+                if (!job) return { ok: false, status: 400, error: 'Unknown coastal job.' };
+                const index = record.coastWork?.[job.id] ?? 0;
+                const step = job.steps[index];
+                if (!Number.isInteger(body.step) || body.step !== index || !step) {
+                    return { ok: true, write: false, character, value: { body: { ok: true, coastWork: record.coastWork ?? {} }, wrote: false } };
+                }
+                if (!presence || presence.locationUnverified || presence.inBattle || character.hospitalized ||
+                    (presence.travelingUntil ?? 0) > now || now - presence.lastSeenAt > 30_000 ||
+                    presence.sector !== step.sector || presence.tile !== step.tile) {
+                    return { ok: false, status: 409, error: 'Walk to the marked work point first.' };
+                }
+                if (body.choice !== step.action && body.choice !== 'work') return { ok: false, status: 409, error: step.hint ?? 'Look again at the work point.' };
+                const coastWork = { ...record.coastWork, [job.id]: index + 1 };
+                return { ok: true, character, recordPatch: { questLines: questLinesForStorage({ ...record, coastWork }, save.questLines) },
+                    value: { body: { ok: true, coastWork }, wrote: true } };
+            }
             let decision: QuestDecision;
             if (action === 'accept') decision = acceptQuestLine(deps, record, character, questId, { inClan, now, clan });
             else if (action === 'advance') decision = advanceQuestLine(deps, record, character, questId, { presence, now, clan });
@@ -270,7 +301,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         }
         return res.status(200).json({
             ...out,
-            ...(wrote ? { character: committed.character, _saveVersion: committed._saveVersion } : {}),
+            ...(wrote || action === 'room-duty' ? { character: committed.character, _saveVersion: committed._saveVersion } : {}),
         });
     } catch (err) {
         if (err instanceof LockContendedError || isPlayerSaveVersionConflict(err)) {

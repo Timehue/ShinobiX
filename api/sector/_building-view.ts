@@ -28,8 +28,10 @@ function rows(character:Record<string,unknown>,ingredients:readonly CraftIngredi
 export function buildingDetailView(building:SectorBuilding,character:Record<string,unknown>,rawShared:unknown,now:number,territory?:Record<string,unknown>|null):BuildingDetailView{
     const progress=readBuildingProgress(character.sectorBuildings,now),standing=buildingStanding(progress,building.id),shared=readSharedBuilding(rawShared,building.kind==='ruin'?{now}:undefined);
     const services:BuildingServiceView[]=building.services.map(service=>{
-        const [title,baseDescription]=service==='repair'&&building.kind==='ruin'?['Ruin restoration',serviceCopy.repair[1]] as const:serviceCopy[service];let reason:string|undefined;
-        const description=service==='festival'?`${buildingFestivalTasks(building.id).map(task=>task.label).join(' → ')}. The keeper records one paid participation per premises per UTC day.`:
+        const [title,baseDescription]=service==='repair'&&building.kind==='ruin'?[building.id==='saltstair-net-rack'?'Net rack repairs':'Ruin restoration',serviceCopy.repair[1]] as const:serviceCopy[service];let reason:string|undefined;
+        const description=building.id==='saltstair-net-rack' && service==='repair'
+            ? 'At four orders the posts stand braced, at twelve the first nets hang, and at twenty-four the rack works for seven days. Each order uses the materials listed below.'
+            :service==='festival'?`${buildingFestivalTasks(building.id).map(task=>task.label).join(' → ')}. The keeper records one paid participation per premises per UTC day.`:
             service==='watch'?`${baseDescription} ${shared.stage===3?(building.restoredWatchPoint?'Restoration has reopened the long signal sightline: check it from the marked bridge position.':'The restored public window supports the full return-signal round on the marked road approaches.'):shared.stage===2?'The sheltered report board is now in use.':shared.stage===1?'New braces support the doorway watch.':'The unrepaired post works from its doorway and the nearby ground markers.'}`:
             service==='repair'&&building.kind==='ruin'?`${baseDescription} Twenty-four orders restore this ruin. It then stands intact for seven days before it weathers back into a ruin, and the count starts again. Unfinished work fades after fourteen days without a completed repair, and world fights in this sector damage it.`:
             service==='courier'&&buildingOnTetsuCircuit(building)?`${baseDescription} This counter hands letters along Tetsu’s established harbor–deepwood circuit.`:baseDescription;
@@ -50,7 +52,13 @@ export function buildingDetailView(building:SectorBuilding,character:Record<stri
     const survey=standing.survey;
     const investigation=BUILDING_INVESTIGATIONS[building.id];
     const owner=building.kind==='stronghold'?territory?.ownerVillage??building.village:building.village;
-    return{building,greeting:buildingGreeting(building,progress,character.village,isWorldNight(now),owner),standing,services,shared,
+    const greeting = building.id === 'saltstair-net-rack' ? [
+        'Hold this post steady. The last swell pulled the foot loose.',
+        'The braces are holding. Give us a hand lacing the first nets.',
+        'Those first nets are drying nicely. The crew is rigging the rest of the rack.',
+        'Look at that whole catch drying in the wind. The rack is earning its keep.',
+    ][shared.stage] : buildingGreeting(building,progress,character.village,isWorldNight(now),owner);
+    return{building,greeting,standing,services,shared,
         relationship:buildingRelationship(building,progress,character),conditions:buildingConditions(building,now,territory),
         materials:building.services.includes('repair')?rows(character,BUILDING_REPAIR_INGREDIENTS):[],
         ...(progress.active?{work:buildingWorkView(progress.active)}:{}),
@@ -61,7 +69,7 @@ export function buildingDetailView(building:SectorBuilding,character:Record<stri
         recipes:building.services.includes('workshop')?buildingWorkshopRecipes(building).flatMap(id=>{
             const recipe=SUPPLY_CRAFT_RECIPES[id],trust=buildingRecipeTrust(building,id);return recipe?[{id,name:ITEM_CATALOG[id]?.name??id,ingredients:rows(character,recipe.ingredients),level:recipe.levelReq??1,trust,ryo:supplyForgeRyo(id,1,workshopFeeFor(buildingStandsRestored(building,shared))),available:standing.trust>=trust}]:[];
         }):[],
-        leads:SECTOR_BUILDINGS.filter(b=>b.id!==building.id&&(b.region===building.region||b.services.includes('courier')))
+        leads:building.id==='saltstair-net-rack'?[]:SECTOR_BUILDINGS.filter(b=>b.id!==building.id&&(b.region===building.region||b.services.includes('courier')))
             .sort((a,b)=>Math.abs(a.sector-building.sector)-Math.abs(b.sector-building.sector)||a.id.localeCompare(b.id)).slice(0,standing.trust>=5?4:2)
             .map(b=>({buildingId:b.id,sector:b.sector,approach:b.approach,name:b.name,reason:b.services.includes('survey')?'The keeper can show you a place with evidence still to record.':b.services.includes('courier')?'This counter receives sealed relay deliveries.':'A staffed public counter stands on this road.'})),
     };
