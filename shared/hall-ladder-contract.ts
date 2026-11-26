@@ -67,7 +67,7 @@ export const HALL_LADDER_DUELISTS: readonly HallLadderDuelist[] = Object.freeze(
 
 /** A duelist's bundled art, served from public/: the portrait, or the
  *  full-body cutout that stands on their floor of the Hall Tower. */
-export const hallLadderArt = (id: string, figure = false) => `/chronicle/ladder/${id}${figure ? "-figure" : ""}.webp`;
+export const hallLadderArt = (id: string, figure = false) => `/chronicle/fx/hall-ladder/${id}${figure ? "-figure" : ""}.webp`;
 
 /** A ladder duelist's portrait by name, for the board's opponent portrait. */
 export function hallLadderPortraitFor(name: string | undefined): string | undefined {

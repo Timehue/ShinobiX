@@ -6,7 +6,7 @@
 //   node scripts/gen-hall-ladder-art.mjs [--only <id>] [--model gpt-image-2] [--env-file <path>] [--dry-run]
 //
 // Writes raw PNGs to scripts/.hall-ladder-art/ (gitignored scratch), then
-// shrinks them to the shipped 512x512 WebPs in public/chronicle/ladder/<id>.webp.
+// shrinks them to the shipped 512x512 WebPs in public/chronicle/fx/hall-ladder/<id>.webp.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -85,7 +85,7 @@ const DUELISTS = {
 /** The climb itself: one tall painting the ladder view scrolls up. Each tier's
  *  platform is left empty, because the duelist's portrait stands there. */
 const TOWER = {
-    ref: "public/chronicle/keeper-path-hero.webp", size: "1024x1536", out: "public/chronicle/ladder/tower.webp", width: 1024, height: 1536, quality: 72,
+    ref: "public/chronicle/keeper-path-hero.webp", size: "1024x1536", out: "public/chronicle/fx/hall-ladder/tower.webp", width: 1024, height: 1536, quality: 72,
     prompt: [
         "The attached image is a scene from the same shinobi card-duel game. Use it ONLY as the reference for art style,",
         "palette, lighting and rendering. Do not redraw its path or its composition.",
@@ -144,12 +144,12 @@ const only = arg("only", "");
 const jobs = [
     ...Object.entries(DUELISTS).map(([id, lines]) => [id, {
         ref: "public/chronicle/keeper.webp", size: "1024x1024", width: 512, height: 512,
-        out: `public/chronicle/ladder/${id}.webp`,
+        out: `public/chronicle/fx/hall-ladder/${id}.webp`,
         prompt: [PORTRAIT_STYLE, "", ...lines].join("\n"),
     }]),
     ...Object.keys(DUELISTS).map((id) => [`${id}-figure`, {
-        ref: `public/chronicle/ladder/${id}.webp`, size: "1024x1536", figureHeight: 300,
-        out: `public/chronicle/ladder/${id}-figure.webp`,
+        ref: `public/chronicle/fx/hall-ladder/${id}.webp`, size: "1024x1536", figureHeight: 300,
+        out: `public/chronicle/fx/hall-ladder/${id}-figure.webp`,
         prompt: FIGURE_STYLE,
     }]),
     ["tower", TOWER],
@@ -164,7 +164,7 @@ if (flag("dry-run")) {
 // --reprocess re-cuts the raw paintings already in scratch: no API call.
 if (!key && !flag("reprocess")) { console.error("error: OPENAI_API_KEY not found (env or shinobij.client/.env)"); process.exit(1); }
 fs.mkdirSync(scratch, { recursive: true });
-fs.mkdirSync(path.join(CLIENT, "public/chronicle/ladder"), { recursive: true });
+fs.mkdirSync(path.join(CLIENT, "public/chronicle/fx/hall-ladder"), { recursive: true });
 
 await Promise.all(jobs.map(async ([id, job]) => {
     const raw = path.join(scratch, `${id}.png`);

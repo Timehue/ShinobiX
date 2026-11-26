@@ -25,7 +25,7 @@ const LESSONS: readonly (readonly [string, number, readonly number[]])[] = [
     ["Snares", 3, [0, 1]],
     ["Calls and Warded Monsters", 2, [0, 2]],
 ];
-const TOWER_ART = "/chronicle/ladder/tower.webp";
+const TOWER_ART = "/chronicle/fx/hall-ladder/tower.webp";
 const FLOORS = HALL_LADDER_DUELISTS.length;
 
 /** Each storey on the tower painting, lowest first, in percent of the painting:

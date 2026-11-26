@@ -25,5 +25,5 @@ dist-ssr
 
 # Raw generator output for scripts/gen-keeper-path-art.mjs (the shipped WebPs live in public/chronicle).
 scripts/.keeper-path-art/
-# Raw generator output for scripts/gen-hall-ladder-art.mjs (the shipped WebPs live in public/chronicle/ladder).
+# Raw generator output for scripts/gen-hall-ladder-art.mjs (the shipped WebPs live in public/chronicle/fx/hall-ladder).
 scripts/.hall-ladder-art/
