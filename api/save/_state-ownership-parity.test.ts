@@ -110,7 +110,7 @@ const FROZEN = {
         'petBreedingHatchReceipts', 'petBreedingProgressReceipts',
         'ryo', 'honorSeals', 'fateShards', 'chroniclePoints', 'boneCharms', 'auraStones', 'mythicSeals', 'auraDust', 'hollowShards',
         // Echoes of War campaign record — non-combat bookkeeping.
-        'echoesOfWar', 'keeperPath', 'echoesWitnessChoices', 'eraJourneys',
+        'echoesOfWar', 'keeperPath', 'hallLadder', 'echoesWitnessChoices', 'eraJourneys',
         // First Pact Aura Stone payout stamp (first-pact/state), 2026-10-26.
         'firstPactAuraPaid',
         'rankedWins', 'rankedLosses', 'rankedSeasonSettlementReceipts', 'pvpRewardSettlementReceipts',
@@ -242,7 +242,7 @@ const FROZEN = {
         // Village Stores daily cook/donate counters (api/village-stores/*).
         'rationsCookedDate', 'rationsCookedToday', 'storesDonatedDate', 'rationsDonatedToday', 'craftPointsDonatedToday', 'villageRareMeritDate', 'villageRareMeritToday',
         // Echoes of War campaign record (card-clash/ai-move echoes settle).
-        'echoesOfWar', 'keeperPath', 'echoesWitnessChoices', 'eraJourneys',
+        'echoesOfWar', 'keeperPath', 'hallLadder', 'echoesWitnessChoices', 'eraJourneys',
         'riftFirstClears', 'riftQuestBossReceipt',
         // First Pact Aura Stone payout stamp: only first-pact/state writes it,
         // in the same save write as the stones (2026-10-26).

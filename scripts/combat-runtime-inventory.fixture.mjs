@@ -125,6 +125,7 @@ export const EXPECTED_RUNTIME_MODE_CONTRACTS = deepFreeze([
   C('card-clash-ai', [route('/card-clash/ai-start', 'start'), route('/card-clash/ai-move', 'action+settlement+state')]),
   C('echoes-of-war', [route('/card-clash/ai-start', 'start'), route('/card-clash/ai-move', 'action+settlement+state')]),
   C('keeper-path', [route('/card-clash/keeper-run', 'lifecycle+start+state'), route('/card-clash/ai-start', 'start'), route('/card-clash/ai-move', 'action+settlement+state')]),
+  C('hall-ladder', [route('/card-clash/ai-start', 'start'), route('/card-clash/ai-move', 'action+settlement+state')]),
   C('dungeon-card', [route('/card-clash/ai-start', 'start'), route('/card-clash/ai-move', 'action+settlement+state'), route('/dungeon/run', 'settlement')]),
   C('hollow-gate-rift-card', [route('/hollow-gate/card-start', 'recovery+start'), route('/card-clash/ai-move', 'action+settlement+state'), route('/hollow-gate/card-settle', 'settlement')]),
 ]);
@@ -208,6 +209,7 @@ export const EXPECTED_RUNTIME_MODE_FACTS = deepFreeze({
   'card-clash-ai': F('chronicle', null, 'solo', 'server-capped', 'match'),
   'echoes-of-war': F('chronicle', null, 'solo', 'server-settled', 'match'),
   'keeper-path': F('chronicle', null, 'solo', 'server-settled', 'match'),
+  'hall-ladder': F('chronicle', null, 'solo', 'server-settled', 'match'),
   'dungeon-card': F('chronicle', null, 'solo', 'parent-mode-settlement', 'match'),
   'hollow-gate-rift-card': F('chronicle', null, 'solo', 'parent-mode-settlement', 'match'),
 });
@@ -297,6 +299,7 @@ export const EXPECTED_RUNTIME_MODE_METADATA = deepFreeze({
   'card-clash-ai': M('card', 'expiring-chronicle-projection'),
   'echoes-of-war': M('card', 'expiring-chronicle-projection'),
   'keeper-path': M('card', 'expiring-chronicle-projection'),
+  'hall-ladder': M('card', 'expiring-chronicle-projection'),
   'dungeon-card': M('card', 'expiring-chronicle-projection-and-parent-run-proof-receipt', 'dungeon'),
   'hollow-gate-rift-card': M('card', 'expiring-chronicle-projection-and-parent-run-proof-receipt', 'hollow-gate'),
 });

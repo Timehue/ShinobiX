@@ -287,6 +287,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('echoesOfWar', 'character', 'server-owned', 'card-clash', ['server-mirror-char', 'combat-strip-char'], 'Echoes of War campaign record (per-encounter wins + first-clear stamps) — card-clash/ai-move echoes settle only'),
     f('echoesWitnessChoices', 'character', 'server-owned', 'card-clash', ['server-mirror-char', 'combat-strip-char'], 'Echoes of War witness decisions — bounded, first-answer-wins records written only by card-clash/echoes-witness'),
     f('keeperPath', 'character', 'server-owned', 'card-clash', ['server-mirror-char', 'combat-strip-char'], "Keeper's Path run and record (map, Resolve, boons, clears, daily pay stamp) -- card-clash/keeper-run and the ai-move settle only"),
+    f('hallLadder', 'character', 'server-owned', 'card-clash', ['server-mirror-char', 'combat-strip-char'], 'Card Hall ladder record (bouts cleared, in order) -- card-clash/ai-move settle only'),
     f('echoesStorySeen', 'character', 'client-state', 'card-clash', [], 'Echoes of War story-seen display flags — cosmetic, client-owned'),
     f('redeemedPetRankedMatchTokens', 'character', 'server-payout-stamp', 'pets', ['server-array-ledger-char'], 'exact-once ranked pet rating and witness settlement'),
     f('chroniclePetWitnesses', 'character', 'server-owned', 'cards', ['server-array-ledger-char'], 'pet arena recognition provenance; grants fixed Living Witness cards'),

@@ -243,6 +243,13 @@ and there is no daily cap (owner ruling).
 - **Unpaid:** Card Hall practice duels, `externalStakes` encounters with no server seal
   (the flag is set by the client, so it has no access limit), and draws. Echoes of War
   keeps its own table unchanged.
+- **Hall Tower (Card Hall ladder, owner request 2026-11-26)** pays the FIRST win of each of
+  its 18 bouts once: 10 CP for each duelist's first two bouts, 30 for the bout that beats
+  the duelist, 60 for beating the champion, 330 CP per account in all. A rematch of a won
+  bout pays nothing, so the Easy early bouts cannot be farmed. The table is
+  `HALL_LADDER_CP` in `shared/hall-ladder-contract.ts`; the credit rides the ai-move settle
+  write that moves the `hallLadder` record, under the session's in-save receipt. Telemetry
+  tag `hall.ladder`.
 - **Exactly once.** The Dungeon and Rift credits ride their existing receipted terminal
   write. The PvP and garrison credits are an outbox on the duel's session, paid through
   an in-save `serverSettlementReceipts` entry committed with the points, so a retry, a

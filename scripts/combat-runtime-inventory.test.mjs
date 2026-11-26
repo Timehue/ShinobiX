@@ -163,7 +163,10 @@ describe('executable multi-engine runtime registry', () => {
     // 67 as of 2026-10-01: caravan ambushes use the Tower engine while
     // preserving the parent caravan run as their settlement owner.
     // 68 as of 2026-10-10: live simultaneous-order Pet Tactics prototype.
-    assert.equal(ids.length, 70, "The inventory must retain the independently pinned 70-row model including Dungeon command authority and Keeper's Path.");
+    // 71 as of 2026-11-25: 'hall-ladder' entered — the Card Hall's Hall Tower,
+    // riding the existing card-clash AI routes with a sealed-bout settlement
+    // (a conscious addition, built and registered together).
+    assert.equal(ids.length, 71, "The inventory must retain the independently pinned 71-row model including Dungeon command authority, Keeper's Path and the Hall Ladder.");
     assert.equal(new Set(ids).size, ids.length, 'Runtime mode ids must be unique.');
     assert.equal(new Set(labels).size, labels.length, 'Runtime mode labels must be unique.');
     assert.equal(new Set(expectedIds).size, expectedIds.length, 'Independent expected mode ids must be unique.');

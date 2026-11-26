@@ -923,6 +923,16 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         statusDetail: "A single-player Chronicle run in the Card Hall: three seeded acts of Keeper duels with boons between them. The run (map, Resolve, boons, sealed deck) lives in the server-owned keeperPath save record; keeper-run moves it by node and boon ids only, ai-start seals the chosen node's opponent and the run's modifiers, and the ai-move settle advances the run, costs Resolve on a loss or forfeit, and pays a completed run's Chronicle Points once per UTC day in the same save write as its replay receipt.",
     }),
     defineMode({
+        id: 'hall-ladder', label: 'Card Hall ladder', category: 'card', authorityEngine: E.CHRONICLE,
+        clientEntries: ['components/HallLadder.tsx', 'screens/CardHall.tsx', 'lib/chronicle-duel.ts'],
+        routes: [
+            mountedRoute('/card-clash/ai-start', 'card-clash/ai-start', ['start']),
+            mountedRoute('/card-clash/ai-move', 'card-clash/ai-move', ['action', 'state', 'settlement']),
+        ],
+        participantModel: 'solo', rewardPolicy: 'server-settled', replayKind: 'expiring-chronicle-projection', status: 'match',
+        statusDetail: 'Six named Card Hall duelists, three bouts each (shared/hall-ladder-contract.ts). ai-start checks the bout is open against the server-owned hallLadder save record and seals the duelist, deck, difficulty and Health handicap into the session; the ai-move settle moves the record on a counted win of the frontier bout and, in the same write, pays that bout\'s first-win Chronicle Points from the shared table (330 over the whole ladder; a rematch pays nothing).',
+    }),
+    defineMode({
         id: 'dungeon-card', label: 'Dungeon Card seal', category: 'card', authorityEngine: E.CHRONICLE,
         orchestrationOwner: O.DUNGEON,
         clientEntries: ['screens/Dungeon.tsx', 'screens/CardClashDuel.tsx', 'lib/chronicle-duel.ts', 'lib/dungeon-api.ts'],

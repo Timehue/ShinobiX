@@ -39,6 +39,15 @@ export type EchoesSettleSummary = {
 };
 /** What a Keeper's Path duel did to its run, from the server's settle receipt. */
 export type KeeperSettleSummary = { result: "win" | "loss" | "draw"; finished: boolean; chroniclePoints: number; title?: string };
+/** A counted Hall Ladder win, from the server's settle receipt. */
+export type HallLadderSettleSummary = {
+    bout: number;
+    advanced: boolean;
+    cleared: number;
+    /** Chronicle Points this win paid: the bout's first-win amount, else 0.
+     *  Optional: receipts settled before the ladder paid replay without it. */
+    chroniclePoints?: number;
+};
 export type ChronicleAiResult = {
     ok: boolean;
     error?: string;
@@ -50,11 +59,13 @@ export type ChronicleAiResult = {
         aiDifficulty: ChronicleAiDifficulty;
         aiDeckName: string;
         winnerResult?: "player" | "opponent" | "draw";
+        /** The Hall Ladder bout the server sealed this duel for, if any. */
+        hallLadderBout?: number;
     };
     /** The committed player action followed by individual AI replies. These
      * snapshots let the client show each cause before the next response. */
     aiSteps?: ChronicleProjection[];
-    reward?: { result: "player" | "opponent" | "draw"; ryo: number; dailyBonus: boolean; echoes?: EchoesSettleSummary; keeperPath?: KeeperSettleSummary };
+    reward?: { result: "player" | "opponent" | "draw"; ryo: number; dailyBonus: boolean; echoes?: EchoesSettleSummary; keeperPath?: KeeperSettleSummary; hallLadder?: HallLadderSettleSummary };
     /** Chronicle Points a won Dungeon Card seal paid (absent when it paid none). */
     chroniclePoints?: number;
     character?: Character;
@@ -134,6 +145,8 @@ export async function startChronicleAi(
     echoesEncounterId?: string,
     /** Keeper's Path: fight the run's chosen node; the server names the opponent. */
     keeperRun = false,
+    /** Hall Ladder: fight this bout; the server names the duelist and difficulty. */
+    hallLadderBout?: number,
 ): Promise<ChronicleAiResult> {
     try {
         const response = await fetch("/api/card-clash/ai-start", {
@@ -151,6 +164,7 @@ export async function startChronicleAi(
                 // deck, difficulty and Chronicle Point reward from this id.
                 ...(echoesEncounterId ? { echoes: { encounterId: echoesEncounterId } } : {}),
                 ...(keeperRun ? { keeperRun: true } : {}),
+                ...(typeof hallLadderBout === "number" ? { hallLadder: { bout: hallLadderBout } } : {}),
             }),
         });
         const body = await response.json().catch(() => ({})) as ChronicleAiResult;

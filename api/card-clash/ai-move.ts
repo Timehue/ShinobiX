@@ -43,6 +43,7 @@ import { echoesBattleBeatForMatch } from "./_echoes-battle-beat.js";
 import { keeperPathOf, settleKeeperFight } from "../../shared/keeper-path-contract.js";
 import { KEEPER_PATH_TITLE } from "../_titles-registry.js";
 import { keeperMatchBindingKey } from "./_keeper-path.js";
+import { hallLadderFirstClearCp, hallLadderOf, settleHallLadderWin } from "../../shared/hall-ladder-contract.js";
 import {
   addChroniclePoints,
   cardPveDungeonCp,
@@ -87,6 +88,8 @@ type SettledReward = {
   echoes?: EchoesVictorySummary;
   /** Keeper's Path: what this duel did to the run, in the same receipt. */
   keeperPath?: { result: "win" | "loss" | "draw"; finished: boolean; chroniclePoints: number; title?: string };
+  /** Hall Ladder: a counted win, and whether it opened the next bout. */
+  hallLadder?: { bout: number; advanced: boolean; cleared: number; chroniclePoints: number };
 };
 type AiLegacyCredit = { receiptId: string; status: "pending" | "done" | "skipped" };
 type StoredSession = AiMatchSession & {
@@ -98,7 +101,7 @@ type StoredSession = AiMatchSession & {
 };
 /** Exactly what settle() reads. A stored session satisfies it, and so does the
  *  record an expired, abandoned showdown is settled from. */
-type SettleInput = Pick<StoredSession, "playerName" | "createdAt" | "winner" | "endedBy" | "echoes" | "keeperRun"> & {
+type SettleInput = Pick<StoredSession, "playerName" | "createdAt" | "winner" | "endedBy" | "echoes" | "keeperRun" | "hallLadder"> & {
   state: Pick<ChronicleMatch, "events">;
 };
 
@@ -251,11 +254,13 @@ async function settle(
   // Reset on every pass: the callback reruns after a lost compare-and-set.
   let freshEchoesPoints = 0;
   let freshKeeperPoints = 0;
+  let freshLadderPoints = 0;
   const settled = await mutatePlayerSave(
     session.playerName,
     ({ character }) => {
       freshEchoesPoints = 0;
       freshKeeperPoints = 0;
+      freshLadderPoints = 0;
       // In-save replay receipt: if this session already paid (a retry after a
       // crash between the payout write and the session settledAt mark), hand
       // back the recorded reward without paying again.
@@ -279,8 +284,8 @@ async function settle(
       // An AI spar never pays ryo (owner rule: only world events, wandering AI,
       // PvP and missions pay). cardClashAiReward is pinned to zero; the
       // settlement receipt keeps its shape so clients and replays are stable.
-      // Echoes of War and Keeper's Path pay Chronicle Points below, from their
-      // own sealed definitions.
+      // Echoes of War, Keeper's Path and the Hall Ladder pay Chronicle Points
+      // below, from their own sealed definitions.
       const reward = forfeited || quickWin
         ? { ryo: 0, dailyBonus: false }
         : cardClashAiReward(winner, alreadyWonToday);
@@ -339,6 +344,17 @@ async function settle(
           value.keeperPath = { result, finished: run.finished, chroniclePoints: run.chroniclePoints, ...(title ? { title } : {}) };
         }
       }
+      // Hall Ladder: the bout was sealed at ai-start after its unlock check. A
+      // counted win of the frontier bout opens the next one and pays that bout's
+      // first-win Chronicle Points from the shared table, in this same write.
+      // A bout already won is never the frontier again, so a rematch pays nothing.
+      if (session.hallLadder && winner === "player" && !forfeited && !quickWin) {
+        const ladder = settleHallLadderWin(hallLadderOf(nextCharacter), session.hallLadder.bout);
+        const chroniclePoints = ladder.advanced ? hallLadderFirstClearCp(session.hallLadder.bout) : 0;
+        if (ladder.advanced) nextCharacter = addChroniclePoints({ ...nextCharacter, hallLadder: ladder.record }, chroniclePoints);
+        freshLadderPoints = chroniclePoints;
+        value.hallLadder = { bout: session.hallLadder.bout, advanced: ladder.advanced, cleared: ladder.record.cleared, chroniclePoints };
+      }
       // Receipt rides the SAME write as the payout (atomic by construction).
       nextCharacter.redeemedCardClashAiSessions = [
         ...redeemed.slice(-39),
@@ -369,6 +385,16 @@ async function settle(
       currency: 'chroniclePoints',
       delta: freshKeeperPoints,
       source: 'keeper.path',
+      balanceAfter: chroniclePointsOf(settled.character),
+    });
+  }
+  if (freshLadderPoints > 0) {
+    void recordEconomyTxn({
+      txnId: `hall-ladder:${receiptId}`,
+      player: session.playerName,
+      currency: 'chroniclePoints',
+      delta: freshLadderPoints,
+      source: 'hall.ladder',
       balanceAfter: chroniclePointsOf(settled.character),
     });
   }

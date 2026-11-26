@@ -462,6 +462,9 @@ export type Character = {
     // SERVER-OWNED per-encounter campaign record (wins + first-clear stamp).
     // Written only by the ai-move echoes settle; a generic save mirrors it.
     echoesOfWar?: Record<string, { wins: number; firstClearAt?: number; firstClearBattleBeat?: import("../../../shared/echoes-witness").EchoesBattleBeat }>;
+    // SERVER-OWNED Card Hall ladder record: bouts won, in ladder order.
+    // Written only by the ai-move settle; a generic save mirrors it.
+    hallLadder?: import("../../../shared/hall-ladder-contract").HallLadderRecord;
     /** Server-sealed first witness answer for each completed Echoes age. */
     echoesWitnessChoices?: import("../../../shared/echoes-witness").EchoesWitnessChoices;
     // Client-owned story-seen display flags (which scenes have been watched).

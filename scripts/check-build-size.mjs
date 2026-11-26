@@ -1555,6 +1555,17 @@ const COAST_TOWN_JS_CSS_FAIL_BYTES = COAST_STREET_AND_HALLS_JS_CSS_FAIL_BYTES + 
 // leaves 396 B with the production settings. All of it loads only on the coast or with a story
 // fight. Revert this line to drop it.
 const COAST_CLUES_JS_CSS_FAIL_BYTES = COAST_TOWN_JS_CSS_FAIL_BYTES + 7 * 1024;
+// 2026-11-26: the Hall Tower, the Card Hall's six-duelist ladder (the tower view, its lessons and
+// bout table, and the Card Hall result and resume wiring). Main's own production image read
+// 9,976,769 B, 2,490 B under the cap, and the tower adds about 9.7 KB, so the merge read
+// 9,986,452 B, 7,193 B over. A fresh dead-class scan of the build found nothing removable (every
+// hit was a class built at runtime). The owner was shown the figure and approved "a named 8 KiB
+// size-limit step for the Hall Tower". With the production settings the merge then read
+// 9,988,661 B; the tower's own trims (compacted styles, lessons read from the Card Clash
+// tutorial pages instead of copied, art paths built from ids, deck names kept server-side,
+// shorter status lines) brought it to 9,987,238 B, 213 B under, after main's #169 (+~240 B).
+// All of it loads only inside the Card Hall. Revert this line to drop it.
+const HALL_LADDER_JS_CSS_FAIL_BYTES = COAST_CLUES_JS_CSS_FAIL_BYTES + 8 * 1024;
 const EFFECTIVE_JS_CSS_FAIL_BYTES = Math.max(
     TOTAL_JS_CSS_FAIL_BYTES, CHRONICLE_JS_CSS_FAIL_BYTES, HARVESTING_JS_CSS_FAIL_BYTES,
     BOSS_FORMS_JS_CSS_FAIL_BYTES, NPC_ROSTER_JS_CSS_FAIL_BYTES, INTERIOR_AVATAR_JS_CSS_FAIL_BYTES,
@@ -1563,6 +1574,7 @@ const EFFECTIVE_JS_CSS_FAIL_BYTES = Math.max(
     NPC_ARRIVAL_LAYER_JS_CSS_FAIL_BYTES,
     COAST_JS_CSS_FAIL_BYTES, COAST_QUESTS_JS_CSS_FAIL_BYTES, COAST_SCREENS_JS_CSS_FAIL_BYTES, COAST_WORKS_ADMIN_JS_CSS_FAIL_BYTES,
     COAST_FIGURES_JS_CSS_FAIL_BYTES, COAST_REPLAY_SCORE_JS_CSS_FAIL_BYTES, COAST_ACHIEVEMENT_JS_CSS_FAIL_BYTES, COAST_PEOPLE_JS_CSS_FAIL_BYTES, COAST_STREET_AND_HALLS_JS_CSS_FAIL_BYTES, COAST_TOWN_JS_CSS_FAIL_BYTES, COAST_CLUES_JS_CSS_FAIL_BYTES,
+    HALL_LADDER_JS_CSS_FAIL_BYTES,
 );
 if (budgetedJsCssTotal > EFFECTIVE_JS_CSS_FAIL_BYTES) {
     failures.push(`budgeted product JS/CSS is ${fmt(budgetedJsCssTotal)} (${budgetedJsCssTotal} B); threshold is ${fmt(EFFECTIVE_JS_CSS_FAIL_BYTES)} (${EFFECTIVE_JS_CSS_FAIL_BYTES} B)`);

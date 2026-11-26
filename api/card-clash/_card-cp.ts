@@ -25,9 +25,11 @@
  *
  * Unpaid by design: Card Hall practice duels, externalStakes encounters that
  * carry no server seal (their start is a client flag), and two modes that keep
- * their own tables: Echoes of War (_echoes-catalog.ts) and Keeper's Path, which
+ * their own tables: Echoes of War (_echoes-catalog.ts), Keeper's Path, which
  * pays a completed run once per UTC day (shared/keeper-path-contract.ts, settled
- * in ai-move). There is no daily cap on the faucets here (owner ruling).
+ * in ai-move), and the Hall Ladder, which pays the first win of each bout once
+ * (shared/hall-ladder-contract.ts, settled in ai-move). There is no daily cap on
+ * the faucets here (owner ruling).
  *
  * Exactly once. The Dungeon and Hollow Gate credits ride the existing terminal
  * write and its receipt. Every other credit is an outbox on the duel's session
