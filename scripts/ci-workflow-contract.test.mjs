@@ -102,6 +102,10 @@ test('blind sprite recognition tests run without provider access and gate the fi
     assert.match(job, /python -m unittest discover -s workers\/avatar-model\/tests -p 'test_battle_sprite\.py' -v/);
     assert.match(job, /python -m unittest discover -s workers\/avatar-model\/tests -p 'test_paint_\*\.py' -v/);
     assert.match(job, /python -m unittest discover -s workers\/avatar-model\/tests -p 'test_roster_release\.py' -v/);
+    for (const name of ['dispatch_read', 'dispatch_stage', 'finish_sprite', 'install_sprite_worker', 'style_revision', 'motion_delivery', 'fitted_motion_checkpoint', 'costume_palette', 'closeup_portrait', 'upright_animal', 'armored_raccoon']) {
+        assert.ok(job.includes(`-p 'test_${name}.py' -v`), `test_${name}.py must run in the avatar-recognition job`);
+    }
+    assert.match(job, /PYTHONPATH: workers\/avatar-model/, 'avatar_worker imports need the worker folder on sys.path');
     assert.match(job, /^\s+\/scripts\/sector-model-release\.py$/m);
     assert.match(job, /OPENAI_API_KEY: ''/);
     assert.match(job, /requirements-linux-paint\.txt/);

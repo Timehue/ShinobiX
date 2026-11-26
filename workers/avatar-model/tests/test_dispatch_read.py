@@ -87,8 +87,9 @@ class PortraitReadTest(unittest.TestCase):
     def test_refusal_or_failure_returns_no_art(self):
         self.lookup.return_value.get.return_value = {"receipt":{"sourceSha256":self.digest, "declined":"uncertain"}}
         self.assertEqual(self.tick(), {"status":"declined"})
-        self.lookup.return_value.get.side_effect = RuntimeError()
-        self.assertEqual(self.tick(), {"status":"failed"})
+        self.lookup.return_value.get.side_effect = RuntimeError("reader exit 1\nportrait_intake: no figure found")
+        # The reply names why the read stopped, so the game server's log can say it (2026-11-25).
+        self.assertEqual(self.tick(), {"status":"failed", "detail":"RuntimeError: reader exit 1 | portrait_intake: no figure found"})
 
     def test_wrong_upload_cannot_spawn(self):
         self.job["portrait"] = base64.b64encode(b"another avatar").decode()

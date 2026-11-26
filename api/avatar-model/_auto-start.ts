@@ -1,6 +1,7 @@
 import { getActiveBan } from '../admin/moderation.js';
 import { LockContendedError, withKvLock } from '../_lock.js';
 import { kv, type KvCasOp } from '../_storage.js';
+import { safeLogValue } from '../_safe-log.js';
 import { admitModelJob, modelCreationPolicy } from './_admission.js';
 import { checkPlayerPortrait, READ_PATIENCE_MS } from './read.js';
 
@@ -77,6 +78,8 @@ export async function advancePortraitCheck(waiting: Waiting, ports = defaults, n
     } catch (error) {
         if (error instanceof LockContendedError) return; // The open page holds the check this minute.
         const errors = (waiting.errors ?? 0) + 1;
+        console.warn('[avatar-model] Portrait check pass failed for', safeLogValue(owner), 'error', errors, 'of', MAX_ERRORS,
+            safeLogValue(error));
         if (errors >= MAX_ERRORS) return settle(owner, 'failed');
         return rewrite(list => list.map(w => w.owner === owner ? { ...w, errors } : w));
     }
@@ -105,6 +108,6 @@ export async function tickPortraitChecks(ports = defaults, budgetMs = 4 * 60_000
     for (const waiting of Array.isArray(list) ? list : []) {
         if (Date.now() > until) break;
         try { await advancePortraitCheck(waiting, ports); }
-        catch { console.warn('[avatar-model] Unable to finish a portrait check'); }
+        catch (error) { console.warn('[avatar-model] Unable to finish a portrait check for', safeLogValue(waiting?.owner), safeLogValue(error)); }
     }
 }

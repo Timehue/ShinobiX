@@ -52,7 +52,9 @@ class PaintExecutionTest(unittest.TestCase):
             stack.enter_context(patch.object(service, "INSTALL", installation))
             stack.enter_context(patch.object(modal.Dict, "from_name", return_value=Claims()))
             stack.enter_context(patch.object(modal, "current_function_call_id", side_effect=["fc-first","fc-second"]))
-            painter = stack.enter_context(patch.object(subprocess, "run", side_effect=interrupt))
+            # The costume painting runs through run_step, which keeps the step's stderr for a failure's message.
+            painter = stack.enter_context(patch.object(service, "run_step",
+                                                       side_effect=lambda command, **_: interrupt(command, check=True)))
             with self.assertRaises(subprocess.CalledProcessError):
                 service.paint_costume.local(asset, metadata, master, portrait, source)
             with self.assertRaisesRegex(ValueError, "already-claimed"):
@@ -114,12 +116,14 @@ class RepaintRoundTest(unittest.TestCase):
             stack.enter_context(patch.object(modal.Dict, "from_name", side_effect=lambda name, **_: Store(name)))
             stack.enter_context(patch.object(modal, "current_function_call_id", return_value="fc-first"))
             stack.enter_context(patch.object(subprocess, "run", side_effect=run))
+            stack.enter_context(patch.object(service, "run_step", side_effect=lambda command, **_: run(command, check=True)))
             if late:  # A round that left less than the room a second one needs.
                 stack.enter_context(patch.object(service, "REPAINT_ROOM", service.PAINT_TIMEOUT + 1))
+            self.raised = None
             try:
                 result = service.paint_costume.local(asset, metadata, sha256(metadata).hexdigest(), portrait, source)
-            except subprocess.CalledProcessError:
-                result = None
+            except (subprocess.CalledProcessError, ValueError) as error:
+                result, self.raised = None, error
         edits = stores["shinobix-avatar-costume-executions"][asset]["edits"]
         return result, rounds, [edit["operation"] for edit in edits]
 
@@ -139,6 +143,15 @@ class RepaintRoundTest(unittest.TestCase):
         result, rounds, _ = self.run_costume(3, late=True)
         self.assertIsNone(result)
         self.assertEqual(rounds, [[]])
+        # Refused paintings are the portrait's verdict: the game ends the job instead of retrying it.
+        self.assertIsInstance(self.raised, ValueError)
+        self.assertEqual(str(self.raised), "costume-refused")
+
+    def test_a_crash_is_not_reported_as_a_refusal(self):
+        result, rounds, _ = self.run_costume(1)
+        self.assertIsNone(result)
+        self.assertEqual(rounds, [[]])
+        self.assertIsInstance(self.raised, subprocess.CalledProcessError)
 
 
 class PaintRoundTest(unittest.TestCase):
@@ -229,6 +242,7 @@ class BattlePaintingTest(unittest.TestCase):
             stack.enter_context(patch.object(modal.Dict, "from_name", side_effect=lambda name, **_: Store(name)))
             stack.enter_context(patch.object(modal, "current_function_call_id", return_value="fc-first"))
             stack.enter_context(patch.object(subprocess, "run", side_effect=run))
+            stack.enter_context(patch.object(service, "run_step", side_effect=lambda command, **_: run(command, check=True)))
             result = service.paint_costume.local(asset, metadata, sha256(metadata).hexdigest(), portrait, source)
             waiting = service.painted_battle_sprite(asset, painted)
             other_master = service.painted_battle_sprite(asset, "d"*64)

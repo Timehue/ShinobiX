@@ -52,12 +52,13 @@ class StageDispatchTest(unittest.TestCase):
         self.assertEqual(self.tick()["status"], "complete")
         failed = {"status": "failed", "callId": "fc-stageA"}
         result["battleSprite"] = b"different pose"
-        self.assertEqual(self.tick(), failed)
+        without_detail = lambda reply: {k: v for k, v in reply.items() if k != "detail"}
+        self.assertEqual(without_detail(self.tick()), failed)
         del result["battleSprite"]
-        self.assertEqual(self.tick(), failed)
+        self.assertEqual(without_detail(self.tick()), failed)
         self.request["stage"] = receipt["style"] = "B"
         result["battleSprite"] = sprite
-        self.assertEqual(self.tick(), failed)
+        self.assertEqual(without_detail(self.tick()), failed)
 
     def test_ambiguous_spawn_is_never_resubmitted_without_provider_evidence(self):
         self.function.spawn.side_effect = TimeoutError("lost response")
@@ -116,6 +117,7 @@ class StageDispatchTest(unittest.TestCase):
                       patch.object(modal.FunctionCall, "from_id", side_effect=lookup),
                       patch.object(modal, "current_function_call_id", return_value=call_id),
                       patch.object(service.subprocess, "run", side_effect=check_before_render),
+                      patch.object(service, "run_step", side_effect=check_before_render),
                       patch.object(service, "deliver", side_effect=check_before_render)):
                     with self.assertRaises(TimeoutError):
                         self.tick()
@@ -186,10 +188,41 @@ class StageDispatchTest(unittest.TestCase):
         result["assetId"] = asset
         result["sheet"] = b"corrupted"
         self.assertEqual(self.tick(), {"status":"invalid-art","callId":"fc-paint"})
-        self.request["attempt"] = 2
+        # A crashed painting gets one fresh attempt (owner, 2026-11-25), never a third.
+        self.request["attempt"] = 3
         with self.assertRaisesRegex(ValueError,"invalid-attempt"):
             self.tick()
         self.function.spawn.assert_called_once()
+
+    def test_a_crashed_painting_is_painted_once_more_and_a_refused_one_ends(self):
+        import dispatch_stage
+        raw = b"account portrait"
+        source = sha256(raw).hexdigest()
+        before = json.dumps({"fit":{"sourceSha256":source}}).encode()
+        master = sha256(before).hexdigest()
+        asset = self.request["assetId"]
+        self.request.update(stage="paint", attempt=2, descriptor=base64.b64encode(before).decode(),
+                            masterSha256=master, sourceSha256=source, portrait=base64.b64encode(raw).decode())
+        self.function.spawn.return_value.object_id = "fc-paint2"
+        self.assertEqual(self.tick(), {"status":"pending","callId":"fc-paint2"})
+        self.function.spawn.assert_called_once_with(asset, before, master, raw, source, 2)
+        from dispatch_result import terminal_result_errors
+        settle = lambda: advance(self.request, self.ledger, self.function, self.lookup, terminal_result_errors())
+        self.lookup.return_value.get.side_effect = ValueError(dispatch_stage.COSTUME_REFUSED)
+        reply = settle()
+        self.assertEqual((reply["status"], reply["callId"]), ("invalid-art", "fc-paint2"))
+        self.lookup.return_value.get.side_effect = ValueError("paint-call-id-unavailable")
+        self.assertEqual(settle()["status"], "failed")
+
+    def test_the_dispatcher_and_worker_agree_on_paint_retry_names(self):
+        import modal
+        import dispatch_stage
+        with patch.dict("os.environ", SPRITE_PAINTED_COSTUMES="1"), patch.object(modal, "is_local", return_value=False):
+            import modal_sprite_worker as service
+        self.assertEqual(dispatch_stage.COSTUME_REFUSED, service.COSTUME_REFUSED)
+        for attempt in (1, 2):
+            self.assertEqual(dispatch_stage.paint_claim_key("a"*32, attempt), service.paint_claim_key("a"*32, attempt))
+        self.assertEqual(service.paint_claim_key("a"*32, 1), "a"*32, "a first painting keeps every earlier job's key")
 
     def test_lost_paint_submission_rejoins_only_the_matching_worker_claim(self):
         raw = b"fresh player portrait"

@@ -51,11 +51,16 @@ export function ProfileModelCreation({ name, onCreated }: { name: string; onCrea
                 });
                 const result = await res.json();
                 if (controller.signal.aborted) return;
-                if (!res.ok) {
+                // The server finishes a started check and starts the model without this page (_auto-start.ts), so a
+                // busy or briefly failing server means wait, never "it failed" (Mayari, 2026-11-25: an error was
+                // shown while the check passed and the model built).
+                const brief = res.status === 503 && (result.error === 'unavailable' || result.error === 'busy');
+                if (!res.ok && !(brief && Date.now() < deadline)) {
                     if (result.error === 'read-expired') setRead(null);
                     if (res.status === 409 && result.error === 'quota') throw new Error('You already have a model this month. Reopen World model to see it.');
                     if (res.status === 429) throw new Error(limitMessage(result));
                     if (result.error === 'read-expired') throw new Error('Your portrait check expired or your portrait changed. Check it again.');
+                    if (result.error === 'failed') throw new Error(checkText.failed);
                     throw new Error('Something went wrong on our side. You can retry.');
                 }
                 if (accepted && typeof result.jobId === 'string' && modelJobIdPattern.test(result.jobId)) {
@@ -73,7 +78,8 @@ export function ProfileModelCreation({ name, onCreated }: { name: string; onCrea
                     setMessage(checkText.declined);
                     return;
                 }
-                if (accepted || result.state !== 'pending') throw new Error(checkText.failed);
+                // A busy server is waited out like a pending check.
+                if (!brief && (accepted || result.state !== 'pending')) throw new Error(checkText.failed);
                 if (Date.now() >= deadline) throw new Error(checkText.checking);
                 await new Promise<void>(resolve => {
                     const finish = () => { clearTimeout(timer); controller.signal.removeEventListener('abort', finish); resolve(); };

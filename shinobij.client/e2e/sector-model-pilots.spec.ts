@@ -626,13 +626,20 @@ test("Profile opens Make Model next to Upload avatar and creates one monthly mod
     }}));
     await page.route(/\/api\/avatar-model\/models(?:\?.*)?$/, route => route.fulfill({json:{models:[],before:null,
         ...(submissions ? {pending:job} : {creationAvailable:true})}}));
+    // A busy server (the model loop holding the check, a start that cannot save yet) is waited out, never
+    // reported as a failure: the server finishes the check without the page (Mayari, 2026-11-25). Each wait is
+    // the page's real 5 s poll, so this flow takes ~15 s longer than the default 45 s allows on WebKit.
+    test.setTimeout(90_000);
     await page.route("**/api/avatar-model/read", route => {
         expect(route.request().postDataJSON()).toEqual({});
         return ++checks === 1 ? route.fulfill({status:202,json:{state:'pending'}}) :
+            checks === 2 ? route.fulfill({status:503,json:{error:'unavailable'}}) :
             route.fulfill({json:{state:'ready',summary:'Warrior in a hooded jacket',readToken:token}});
     });
+    let starts = 0;
     await page.route("**/api/avatar-model/jobs", route => {
         expect(route.request().postDataJSON()).toEqual({readToken:token,idempotencyKey:token});
+        if (++starts === 1) return route.fulfill({status:503,json:{error:'busy'}});
         submissions++;
         return route.fulfill({status:202,json:{jobId:job.id}});
     });
@@ -660,11 +667,13 @@ test("Profile opens Make Model next to Upload avatar and creates one monthly mod
     await expect(dialog.getByRole('status')).toHaveText(/^Checking your portrait…/);
     // An accepted portrait submits its model with no second click.
     const library = page.getByRole("dialog",{name:"World model"});
+    await expect(dialog.getByRole('status')).toHaveText('Accepted. Starting your model…', {timeout:15000});
     await expect(library.getByText(/Queued for creation/)).toBeVisible({timeout:15000});
     await page.reload();
     await equip.click();
     await expect(library.getByText(/Queued for creation/)).toBeVisible();
-    expect(checks).toBe(2);
+    expect(checks).toBe(3);
+    expect(starts).toBe(2);
     expect(submissions).toBe(1);
 });
 

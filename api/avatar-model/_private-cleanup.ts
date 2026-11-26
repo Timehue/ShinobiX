@@ -1,4 +1,5 @@
 import { kv, type KvCasOp } from '../_storage.js';
+import { safeLogValue } from '../_safe-log.js';
 import { canonicalPrivateFiles, withPrivateFileLock, type PrivateReference } from './_private-index.js';
 import { modelOwnerKey, validModelOwnerId, type ModelOwner } from './_owner.js';
 import { erasePrivateModelFile, readPrivateModelFile } from './_private-files.js';
@@ -112,7 +113,10 @@ export async function sweepPrivateModelReferences(erase=erasePrivateReference) {
             if(!await cleanupDisposition(ref,Date.now())) continue;
             attempted++;
             if(await erase(key)) erased++;
-        } catch {failed++;}
+        } catch (error) {
+            failed++;
+            console.warn('[avatar-model] Private model erasure failed for',key,safeLogValue(error));
+        }
     }
     if(last) await kv.set(cursorKey,last);
     const summary={checked,attempted,erased,failed,at:Date.now()};

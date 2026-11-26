@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 import { kv,type KvCasOp } from '../_storage.js';
+import { safeLogValue } from '../_safe-log.js';
 import { withScheduledJobLease } from '../cron/_job-lease.js';
 import { modelOwnerKey,validModelOwnerId,type ModelOwner } from './_owner.js';
 import { erasePrivateReference, tickPrivateModelCleanup } from './_private-cleanup.js';
@@ -105,8 +106,9 @@ export async function advanceModelCleanup(assetId:string,erase=eraseStoredModel,
             completedAt:Date.now(),receipt:reply}},
             {op:'cas',key:queueKey,expected:queue,value:queue.filter(id=>id!==assetId)}]))
             throw new Error('Model erasure authority changed');
-    } catch {
+    } catch (error) {
         const attempt=row.attempt+1;
+        console.warn('[avatar-model] Stored model erasure attempt',attempt,'failed for asset',assetId,safeLogValue(error));
         await kv.compareSetMany?.([{op:'cas',key,expected:row,value:{...row,attempt,
             nextAttemptAt:Date.now()+Math.min(6*60*60000,60000*2**Math.min(attempt-1,9)),lastFailureAt:Date.now(),
             lastFailureCode:'unconfirmed-erasure'}}]);
@@ -130,7 +132,7 @@ export async function sweepPublicModelCleanup(advance = advanceModelCleanup) {
         const row = await kv.get<Cleanup>(prefix + 'cleanup:' + id);
         if (row?.state !== 'pending' || row.nextAttemptAt > Date.now()) continue;
         try { await advance(id); }
-        catch { console.warn('[avatar-model] Public cleanup needs attention'); }
+        catch (error) { console.warn('[avatar-model] Public cleanup needs attention for asset', id, safeLogValue(error)); }
         break;
     }
     if (last) await kv.set(cursorKey, last);
@@ -138,12 +140,12 @@ export async function sweepPublicModelCleanup(advance = advanceModelCleanup) {
 
 export async function tickModelCleanup() {
     if(process.env.AVATAR_MODEL_CLEANUP_ENABLED!=='1') return;
-    try{await tickPrivateModelCleanup();}catch{console.warn('[avatar-model] Private cleanup remains pending');}
+    try{await tickPrivateModelCleanup();}catch(error){console.warn('[avatar-model] Private cleanup remains pending',safeLogValue(error));}
     await withScheduledJobLease('avatar-model-public-cleanup', () => sweepPublicModelCleanup(), {ttlSec:300});
     try {
         await withScheduledJobLease('avatar-model-account-erasure', sweepDeletedModelOwners,
             {ttlSec:300, holdUntilExpiryOnSuccess:true});
-    } catch {
-        console.warn('[avatar-model] Account record erasure remains pending');
+    } catch (error) {
+        console.warn('[avatar-model] Account record erasure remains pending', safeLogValue(error));
     }
 }
