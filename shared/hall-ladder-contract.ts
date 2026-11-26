@@ -1,8 +1,8 @@
 /**
  * Hall Ladder: the Card Hall's climb of named AI duelists. Each duelist is
  * fought three times, each bout harder than the last, and beating the third
- * opens the next duelist. The first duelists double as the tutorial: each one
- * carries one rule of the game as its lesson.
+ * opens the next duelist. Each duelist also teaches one rule of the game, taken
+ * from the Card Clash tutorial (the client's HallLadder view picks the lines).
  *
  * Progress is one server-owned number on the save (`character.hallLadder`):
  * how many bouts, counted from the first, have been won. ai-start checks that
@@ -30,13 +30,6 @@ export interface HallLadderDuelist {
     title: string;
     /** Board name for the duelist's deck. */
     deckName: string;
-    /** Bundled portrait, served from public/. */
-    portrait: string;
-    /** Full-body cutout that stands on the duelist's floor of the Hall Tower. */
-    figure: string;
-    /** The rule this duelist teaches, shown before each of their bouts. */
-    lessonTitle: string;
-    lesson: string;
     bouts: readonly [HallLadderBout, HallLadderBout, HallLadderBout];
 }
 
@@ -49,52 +42,39 @@ const bout = (difficulty: ChronicleAiDifficulty, opponentLifeBonus = 0): HallLad
 const DUELISTS: HallLadderDuelist[] = [
     {
         id: "apprentice", name: "Kiri", title: "The Hall Apprentice", deckName: "First Lessons",
-        portrait: "/chronicle/ladder/apprentice.webp", figure: "/chronicle/ladder/apprentice-figure.webp",
-        lessonTitle: "Your turn",
-        lesson: "Draw, Standby and End resolve on their own. You choose when to start and finish attacking. The first player skips its turn-one draw and cannot attack that turn.",
         bouts: [bout("easy"), bout("easy", 1_000), bout("medium")],
     },
     {
         id: "scrollkeeper", name: "Tobei", title: "The Scroll Keeper", deckName: "Old Ledgers",
-        portrait: "/chronicle/ladder/scrollkeeper.webp", figure: "/chronicle/ladder/scrollkeeper-figure.webp",
-        lessonTitle: "Summoning and Tributes",
-        lesson: "Summon or Set one Monster per turn. Levels 1 to 4 need no Tribute, Levels 5 and 6 need one, and Levels 7 and 8 need two.",
         bouts: [bout("easy"), bout("medium"), bout("medium", 2_000)],
     },
     {
         id: "swifthand", name: "Suzume", title: "The Swift Hand", deckName: "Quick Feathers",
-        portrait: "/chronicle/ladder/swifthand.webp", figure: "/chronicle/ladder/swifthand-figure.webp",
-        lessonTitle: "Elements",
-        lesson: "Fire beats Wind, then Lightning, Earth, Water and Fire again. Advantage adds +200 to the ATK or DEF used in battle.",
         bouts: [bout("medium"), bout("medium", 2_000), bout("hard")],
     },
     {
         id: "stonewall", name: "Gensai", title: "The Stone Wall", deckName: "Unbroken Line",
-        portrait: "/chronicle/ladder/stonewall.webp", figure: "/chronicle/ladder/stonewall-figure.webp",
-        lessonTitle: "Set Monsters and FLIP",
-        lesson: "A Set Monster enters face-down in Defense Position and can be Flip Summoned on a later turn. A FLIP effect triggers when the Monster is turned face-up.",
         bouts: [bout("medium", 2_000), bout("hard"), bout("hard", 2_000)],
     },
     {
         id: "hiddenmist", name: "Ayame", title: "Of the Hidden Mist", deckName: "Veiled Answers",
-        portrait: "/chronicle/ladder/hiddenmist.webp", figure: "/chronicle/ladder/hiddenmist-figure.webp",
-        lessonTitle: "Snares",
-        lesson: "A Set Snare waits one turn before it can answer a matching move. Target badges preview a battle from the stats you can see, so a hidden Snare can still change the result.",
         bouts: [bout("hard"), bout("hard", 2_000), bout("hard", 3_000)],
     },
     {
         id: "champion", name: "Kurogane", title: "Champion of the Card Hall", deckName: "Champion's Due",
-        portrait: "/chronicle/ladder/champion.webp", figure: "/chronicle/ladder/champion-figure.webp",
-        lessonTitle: "Calls and Warded Monsters",
-        lesson: "A Call Jutsu Summons its matching Level 8 Monster from your hand for 1,000 Health. Many Level 7 and 8 Monsters are Warded: Snares cannot destroy them on the turn they are Summoned.",
         bouts: [bout("hard", 2_000), bout("hard", 3_000), bout("hard", 4_000)],
     },
 ];
 export const HALL_LADDER_DUELISTS: readonly HallLadderDuelist[] = Object.freeze(DUELISTS.map((duelist) => Object.freeze(duelist)));
 
+/** A duelist's bundled art, served from public/: the portrait, or the
+ *  full-body cutout that stands on their floor of the Hall Tower. */
+export const hallLadderArt = (id: string, figure = false) => `/chronicle/ladder/${id}${figure ? "-figure" : ""}.webp`;
+
 /** A ladder duelist's portrait by name, for the board's opponent portrait. */
 export function hallLadderPortraitFor(name: string | undefined): string | undefined {
-    return HALL_LADDER_DUELISTS.find((duelist) => duelist.name === name)?.portrait;
+    const duelist = HALL_LADDER_DUELISTS.find((entry) => entry.name === name);
+    return duelist && hallLadderArt(duelist.id);
 }
 
 export const HALL_LADDER_TOTAL_BOUTS = HALL_LADDER_DUELISTS.length * HALL_LADDER_BOUTS_PER_DUELIST;

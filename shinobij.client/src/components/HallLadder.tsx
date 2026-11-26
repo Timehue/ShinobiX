@@ -2,14 +2,28 @@ import { useEffect, useState } from "react";
 import {
     HALL_LADDER_BOUTS_PER_DUELIST,
     HALL_LADDER_DUELISTS,
+    hallLadderArt,
     hallLadderBoutOpen,
     hallLadderFirstClearCp,
     hallLadderFrontier,
     type HallLadderRecord,
 } from "../../../shared/hall-ladder-contract";
+import { TUTORIAL_PAGES } from "../lib/card-clash-tutorial-pages";
 import "../styles/hall-ladder.css";
 
 const DIFFICULTY_LABEL = { easy: "Easy", medium: "Medium", hard: "Hard" } as const;
+
+/** Each duelist's lesson, in ladder order: its title, then the Card Clash
+ *  tutorial page and the lines of it the duelist teaches. Reading the tutorial
+ *  keeps the two in step and ships the rules text once. */
+const LESSONS: readonly (readonly [string, number, readonly number[]])[] = [
+    ["Your turn", 0, [0, 1]],
+    ["Summoning and Tributes", 1, [0]],
+    ["Elements", 1, [2]],
+    ["Set Monsters and FLIP", 1, [1]],
+    ["Snares", 3, [0, 1]],
+    ["Calls and Warded Monsters", 2, [0, 2]],
+];
 const TOWER_ART = "/chronicle/ladder/tower.webp";
 const FLOORS = HALL_LADDER_DUELISTS.length;
 
@@ -100,7 +114,7 @@ export function HallLadder({ owner, record, busy, onFight }: {
             <p className="hall-ladder__progress">
                 {complete
                     ? "You stand at the top of the Hall Tower. Every duelist can be fought again."
-                    : `Floor ${currentFloor + 1} of ${FLOORS}. Win three bouts against a floor's duelist to climb to the next.`}
+                    : `Floor ${currentFloor + 1} of ${FLOORS}. Win three bouts to climb to the next floor.`}
             </p>
             {arrived !== null ? (
                 <p className="hall-ladder__arrival" role="status">
@@ -131,14 +145,14 @@ export function HallLadder({ owner, record, busy, onFight }: {
                                 tabIndex={-1}
                                 onClick={() => setPicked(floor)}
                             >
-                                <img src={entry.figure} alt="" decoding="async" />
+                                <img src={hallLadderArt(entry.id, true)} alt="" decoding="async" />
                             </button>
                         );
                     })}
                     </div>
                 </div>
                 <div className="hall-ladder__card">
-                    <img className="hall-ladder__portrait" src={duelist.portrait} alt={`${duelist.name}, ${duelist.title}`} width={112} height={112} />
+                    <img className="hall-ladder__portrait" src={hallLadderArt(duelist.id)} alt={`${duelist.name}, ${duelist.title}`} width={112} height={112} />
                     <div className="hall-ladder__detail">
                         <div className="hall-ladder__floors" role="group" aria-label="Look at a floor">
                             {HALL_LADDER_DUELISTS.map((entry, floor) => floor <= tokenFloor ? (
@@ -179,8 +193,8 @@ export function HallLadder({ owner, record, busy, onFight }: {
                             })}
                         </ol>
                         <div className="hall-ladder__lesson">
-                            <strong>{duelist.name}'s lesson: {duelist.lessonTitle}</strong>
-                            <p>{duelist.lesson}</p>
+                            <strong>{duelist.name}'s lesson: {LESSONS[shown][0]}</strong>
+                            <p>{LESSONS[shown][2].map((line) => TUTORIAL_PAGES[LESSONS[shown][1]].lines[line]).join(" ")}</p>
                         </div>
                         {nextBout !== null ? (
                             <button type="button" className="hall-ladder__fight" disabled={busy} onClick={() => onFight(nextBout)}>

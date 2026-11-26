@@ -6,24 +6,20 @@
 
 /* The tower painting. Each reached floor's duelist stands on it as a painted
    cutout, feet on the floor spot, at the tower's own scale: no rings, labels
-   or badges are drawn over the art. */
+   or badges are drawn over the art. The figure is not a game button, so it
+   drops the raised ledge, plate and hover brightening every button gets. */
 .hall-tower { position: relative; flex: 0 1 420px; width: 100%; max-width: 420px; aspect-ratio: 2 / 3; background: #0b1016; border-radius: 14px; overflow: hidden; box-shadow: 0 14px 34px rgba(0, 0, 0, .5); }
-.hall-tower__floor { position: absolute; min-width: 44px; transform: translate(-50%, -100%); display: flex; align-items: flex-end; justify-content: center; padding: 0; border: 0; background: none; cursor: pointer; }
+.hall-tower__floor, .hall-tower__floor:hover, .hall-tower__floor:active { position: absolute; min-width: 44px; transform: translate(-50%, -100%); display: flex; align-items: flex-end; justify-content: center; padding: 0; border: 0; background: none; box-shadow: none; filter: none; }
 /* The camera: the painting at ZOOM (HallLadder.tsx) scale, panned to a floor. */
-.hall-tower__stage { position: absolute; inset: 0 auto auto 0; width: 160%; height: 160%; background: #0b1016 center / 100% 100% no-repeat; transition: transform 1.6s cubic-bezier(.45, 0, .2, 1); will-change: transform; }
-@media (prefers-reduced-motion: reduce) { .hall-tower__stage { transition: none; } }
-html.lite-fx .hall-tower__stage { transition: none; }
-/* Not a game button: no raised ledge, plate or hover brightening under the figure. */
-.hall-tower__floor, .hall-tower__floor:hover, .hall-tower__floor:active { box-shadow: none; filter: none; transform: translate(-50%, -100%); }
-.hall-tower__floor img { height: 100%; width: auto; display: block; filter: drop-shadow(0 3px 3px rgba(0, 0, 0, .7)); }
-.hall-tower__floor.is-beaten img { filter: brightness(.8) saturate(.8) drop-shadow(0 3px 3px rgba(0, 0, 0, .7)); }
-.hall-tower__floor.is-current img { filter: drop-shadow(0 0 5px rgba(255, 196, 102, .55)) drop-shadow(0 3px 3px rgba(0, 0, 0, .7)); }
-.hall-tower__floor.is-shown img { filter: drop-shadow(0 0 7px rgba(255, 206, 120, .9)) drop-shadow(0 3px 3px rgba(0, 0, 0, .7)); }
-.hall-tower__floor:hover img { filter: drop-shadow(0 0 7px rgba(255, 206, 120, .75)) drop-shadow(0 3px 3px rgba(0, 0, 0, .7)); }
-.hall-tower__floor:focus-visible { outline: 2px solid #fff; outline-offset: 2px; border-radius: 6px; }
+.hall-tower__stage { position: absolute; inset: 0 auto auto 0; width: 160%; height: 160%; background: center / 100% 100% no-repeat; transition: transform 1.6s cubic-bezier(.45, 0, .2, 1); }
+.hall-tower__floor img { --hl-glow: drop-shadow(0 0 0 #0000); height: 100%; display: block; filter: var(--hl-glow) drop-shadow(0 3px 3px #000b); }
+.hall-tower__floor.is-beaten img { filter: brightness(.8) saturate(.8) var(--hl-glow) drop-shadow(0 3px 3px #000b); }
+.hall-tower__floor.is-current img { --hl-glow: drop-shadow(0 0 5px #ffc4668c); }
+.hall-tower__floor.is-shown img, .hall-tower__floor:hover img { --hl-glow: drop-shadow(0 0 7px #ffce78e6); }
 .hall-tower__floor.is-arrived img { animation: hall-tower-arrive 1.2s ease-out 1.4s both; }
-@keyframes hall-tower-arrive { from { opacity: 0; transform: translateY(8%); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .hall-tower__floor.is-arrived img { animation: none; } }
+@keyframes hall-tower-arrive { from { opacity: 0; transform: translateY(8%); } }
+@media (prefers-reduced-motion: reduce) { .hall-tower__stage { transition: none; } .hall-tower__floor.is-arrived img { animation: none; } }
+html.lite-fx .hall-tower__stage { transition: none; }
 html.lite-fx .hall-tower__floor.is-arrived img { animation: none; }
 
 .hall-ladder__card { flex: 1 1 280px; max-width: 460px; display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }

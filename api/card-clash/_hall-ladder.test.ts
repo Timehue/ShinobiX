@@ -6,6 +6,7 @@ import { createMatch, MAIN_DECK_SIZE, STARTING_LIFE_POINTS, validateDeckIds } fr
 import {
     HALL_LADDER_DUELISTS,
     HALL_LADDER_TOTAL_BOUTS,
+    hallLadderArt,
     hallLadderBout,
     hallLadderBoutOpen,
     hallLadderFirstClearCp,
@@ -25,8 +26,8 @@ test("every duelist plays a legal 40-card deck and has its portrait shipped", ()
         assert.ok(deck, `${duelist.id} has a deck`);
         assert.equal(deck!.length, MAIN_DECK_SIZE, `${duelist.id} runs ${MAIN_DECK_SIZE} cards`);
         assert.equal(validateDeckIds(deck!).valid, true, `${duelist.id} deck is legal`);
-        assert.ok(fs.existsSync(path.join(ROOT, "shinobij.client/public", duelist.portrait)), `${duelist.portrait} exists`);
-        assert.ok(fs.existsSync(path.join(ROOT, "shinobij.client/public", duelist.figure)), `${duelist.figure} exists`);
+        assert.ok(fs.existsSync(path.join(ROOT, "shinobij.client/public", hallLadderArt(duelist.id))), `${duelist.id} portrait exists`);
+        assert.ok(fs.existsSync(path.join(ROOT, "shinobij.client/public", hallLadderArt(duelist.id, true))), `${duelist.id} figure exists`);
     }
     assert.equal(hallLadderOpponentDeck("nobody"), null);
 });

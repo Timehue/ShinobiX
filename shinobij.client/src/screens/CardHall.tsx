@@ -461,7 +461,7 @@ function CardHallInner({
           ? `${ladderCurrent.duelist.name} is beaten. ${ladderNext.duelist.name}, ${ladderNext.duelist.title}, is waiting for you.`
           : `Bout ${ladderCurrent.round + 1} won. Bout ${ladderNext.round + 1} against ${ladderCurrent.duelist.name} is open.`) + ladderPaid
       : ladderSummary
-        ? "You had already won this bout, so the ladder did not move and it paid no points."
+        ? "You had already won this bout: no climb and no points."
         : duel.winner === duel.viewerSide
           ? "A win this quick does not count on the ladder."
           : "You can try this bout again as many times as you like.";

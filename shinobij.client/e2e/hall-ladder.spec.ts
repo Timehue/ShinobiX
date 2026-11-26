@@ -118,4 +118,13 @@ test("a cleared tower shows every duelist on their own floor, with room between 
     expect(boxes[floor].top - boxes[floor + 1].bottom).toBeGreaterThan(boxes[floor].height * 0.5);
   }
   await tower.screenshot({ path: testInfo.outputPath("hall-tower-cleared.png") });
+  // Every duelist teaches a lesson read from the Card Clash tutorial pages.
+  const lessons = ["Your turn", "Summoning and Tributes", "Elements", "Set Monsters and FLIP", "Snares", "Calls and Warded Monsters"];
+  for (const [floor, name] of names.entries()) {
+    await tower.getByRole("button", { name: `Look at floor ${floor + 1}: ${name}` }).click();
+    await expect(tower.getByText(`${name}'s lesson: ${lessons[floor]}`)).toBeVisible();
+    const text = await tower.locator(".hall-ladder__lesson p").innerText();
+    expect(text.length).toBeGreaterThan(60);
+    expect(text).not.toContain("undefined");
+  }
 });
