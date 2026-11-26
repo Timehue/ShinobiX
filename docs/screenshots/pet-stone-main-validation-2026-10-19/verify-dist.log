@@ -1,6 +1,0 @@
-[verify:dist] Retired pet battle UI is absent from executable client assets.
-[verify:dist] Scenic companions: 161 reviewed portraits / 13.8 MiB (16 MiB ceiling).
-[verify:dist] Rally: 161 atlases / 3816022 B (4 MiB ceiling).
-[verify:dist] Pets: 483 runtime files match exact certified delivery bytes.
-[verify:dist] Chronicle art 142.6 / 144 MiB; other runtime assets 425.3 / 456.4 MiB.
-[verify:dist] OK — server 62.4 KB; client 581.7 MB with no authoring sources and no -webkit-only (backdrop-)filter rules; Vercel config absent.

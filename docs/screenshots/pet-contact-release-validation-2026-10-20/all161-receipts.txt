@@ -1,9 +1,0 @@
-
-> shinobij.client@0.0.0 check:pet-shape-review
-> node ../node_modules/tsx/dist/cli.mjs scripts/check-pet-shape-review.mjs
-
-{
-  "reviewedModels": 161,
-  "scope": "entire-roster",
-  "failures": []
-}
