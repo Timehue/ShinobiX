@@ -47,6 +47,64 @@ test("raising a waiting ticket moves it up", async () => {
     assert.deepEqual(order, ["busy", "warm-start", "peer"]);
 });
 
+test("the player's own lane starts its page while a crowd page is still decoding", async () => {
+    // One lane only for the player's figure, one for everything.
+    const queue = createDecodeQueue([0, 2]);
+    const started: string[] = [];
+    const crowd = gate(), crowdNext = gate();
+    const job = (name: string, ticket: DecodeTicket, wait?: Promise<void>) =>
+        queue.run(ticket, async lane => { started.push(`${name}@${lane}`); await wait; });
+    const jobs = [
+        job("peer-a", { priority: 1 }, crowd.done),     // the crowd lane
+        job("peer-b", { priority: 1 }, crowdNext.done), // waits: the own lane never takes it
+        job("warm", { priority: 2 }),
+        job("self-walk", { priority: 0 }),              // the own lane, at once
+    ];
+    await settle();
+    assert.deepEqual(started, ["peer-a@1", "self-walk@0"], "the player's page does not wait on peer-a");
+    crowd.open(); await settle();
+    crowdNext.open();
+    await Promise.all(jobs);
+    assert.deepEqual(started, ["peer-a@1", "self-walk@0", "peer-b@1", "warm@1"]);
+});
+
+test("with the own lane busy, the player's next page takes the crowd lane ahead of the crowd", async () => {
+    const queue = createDecodeQueue([0, 2]);
+    const started: string[] = [];
+    const self = gate();
+    const job = (name: string, ticket: DecodeTicket, wait?: Promise<void>) =>
+        queue.run(ticket, async lane => { started.push(`${name}@${lane}`); await wait; });
+    const busy = job("self-start", { priority: 0 }, self.done);
+    const crowd = gate();
+    const peer = job("peer-a", { priority: 1 }, crowd.done);
+    const queued = [job("peer-b", { priority: 1 }), job("self-brake", { priority: 0 })];
+    await settle();
+    assert.deepEqual(started, ["self-start@0", "peer-a@1"]);
+    crowd.open(); await settle();
+    // The own lane is still busy, so the crowd lane takes the player's page before peer-b.
+    assert.deepEqual(started, ["self-start@0", "peer-a@1", "self-brake@1", "peer-b@1"]);
+    self.open();
+    await Promise.all([busy, peer, ...queued]);
+});
+
+test("a raised ticket starts on the own lane once pumped", async () => {
+    const queue = createDecodeQueue([0, 2]);
+    const started: string[] = [];
+    const crowd = gate();
+    const warm: DecodeTicket = { priority: 2 };
+    const all = [
+        queue.run({ priority: 1 }, async () => { started.push("peer"); await crowd.done; }),
+        queue.run(warm, async lane => { started.push(`warm-start@${lane}`); }),
+    ];
+    await settle();
+    assert.deepEqual(started, ["peer"]);
+    warm.priority = 0; queue.pump();
+    await settle();
+    assert.deepEqual(started, ["peer", "warm-start@0"], "the player's start page does not wait for the crowd");
+    crowd.open();
+    await Promise.all(all);
+});
+
 test("a failed decode rejects its caller and the queue keeps going", async () => {
     const queue = createDecodeQueue();
     const broken = queue.run({ priority: 0 }, async () => { throw new Error("Pose decoder unavailable"); });

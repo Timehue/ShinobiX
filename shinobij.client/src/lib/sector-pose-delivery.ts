@@ -41,7 +41,7 @@ async function readFacing(folder: string, name: string, priority: DecodePriority
 }
 
 /**
- * Decode order. One worker decodes one page at a time, so the order is the
+ * Decode order. A worker decodes one page at a time, so the order is the
  * difference between your own figure appearing first and appearing after every
  * other figure in a crowded sector.
  *   0 — the player's own figure
@@ -52,37 +52,57 @@ async function readFacing(folder: string, name: string, priority: DecodePriority
  */
 export type DecodePriority = 0 | 1 | 2;
 export type DecodeTicket = {priority: DecodePriority};
-type DecodeJob = {ticket: DecodeTicket; start: () => Promise<unknown>};
+type DecodeJob = {ticket: DecodeTicket; start: (lane: number) => Promise<unknown>};
 
-/** A one-at-a-time queue that always starts the most urgent waiting job (oldest first among equals). */
-export function createDecodeQueue() {
+/**
+ * Decode lanes that each run one job at a time. Lane `i` starts only jobs at
+ * priority `lanes[i]` or more urgent, and always the most urgent of those
+ * (oldest first among equals). The default is one lane that takes everything.
+ */
+export function createDecodeQueue(lanes: readonly DecodePriority[] = [2]) {
     const waiting: DecodeJob[] = [];
-    let busy = false;
+    const busy = lanes.map(() => false);
     function pump() {
-        if (busy || !waiting.length) return;
-        let next = 0;
-        for (let i = 1; i < waiting.length; i++) if (waiting[i]!.ticket.priority < waiting[next]!.ticket.priority) next = i;
-        const [job] = waiting.splice(next, 1);
-        busy = true;
-        void job!.start().catch(() => {}).finally(() => { busy = false; pump(); });
+        for (let lane = 0; lane < lanes.length; lane++) {
+            if (busy[lane]) continue;
+            let next = -1;
+            for (let i = 0; i < waiting.length; i++) {
+                const priority = waiting[i]!.ticket.priority;
+                if (priority <= lanes[lane]! && (next < 0 || priority < waiting[next]!.ticket.priority)) next = i;
+            }
+            if (next < 0) continue;
+            const [job] = waiting.splice(next, 1);
+            busy[lane] = true;
+            void job!.start(lane).catch(() => {}).finally(() => { busy[lane] = false; pump(); });
+        }
     }
     return {
-        run<T>(ticket: DecodeTicket, work: () => Promise<T>): Promise<T> {
+        run<T>(ticket: DecodeTicket, work: (lane: number) => Promise<T>): Promise<T> {
             return new Promise<T>((resolve, reject) => {
-                waiting.push({ticket, start: () => work().then(resolve, error => { reject(error); })});
+                waiting.push({ticket, start: lane => work(lane).then(resolve, error => { reject(error); })});
                 pump();
             });
         },
+        /** A waiting ticket was raised: a lane it may now use can start it. */
+        pump,
         get waiting() { return waiting.length; },
     };
 }
 
-let worker: Worker | undefined;
-const decodes = createDecodeQueue();
+// The player's own figure has a worker of its own. With one shared worker, its
+// next page (a start, a turn, the walk loop) waited behind whatever crowd page
+// was decoding, and on a phone that wait outlasts the 400 ms the figure holds
+// before it moves on a frozen frame: the player glided. The second worker takes
+// everything, the player's pages included when the first is busy.
+const workers: Array<Worker | undefined> = [];
+const decodes = createDecodeQueue([0, 2]);
+const spawnDecoder = () => new Worker(new URL('./sector-pose.worker.ts',import.meta.url),{type:'module'});
 function unpack(bytes: ArrayBuffer,page: Page,ticket: DecodeTicket) {
-    return decodes.run(ticket, () => new Promise<Blob | ImageData>((resolve,reject)=>{
-        worker ??= new Worker(new URL('./sector-pose.worker.ts',import.meta.url),{type:'module'});
-        const reset = () => {worker?.terminate();worker=undefined;reject(Error('Pose decoder unavailable'));};
+    return decodes.run(ticket, lane => new Promise<Blob | ImageData>((resolve,reject)=>{
+        // Both start together, so neither lane's first page also waits on its decoder starting up.
+        if (!workers[lane]) for (let i = 0; i < 2; i++) workers[i] ??= spawnDecoder();
+        const worker = workers[lane]!;
+        const reset = () => {worker.terminate();if (workers[lane]===worker) workers[lane]=undefined;reject(Error('Pose decoder unavailable'));};
         const timer = setTimeout(reset,12000);
         worker.onerror=()=>{clearTimeout(timer);reset();};
         worker.onmessage=({data})=>{
@@ -138,7 +158,7 @@ export async function loadPackedImage(folder:string,page:Page,priority:DecodePri
     if (entry) {
         decodedPages.delete(key);
         // Another figure (or a warm-up) asked first: a more urgent ask moves it up.
-        if (priority<entry.ticket.priority) entry.ticket.priority=priority;
+        if (priority<entry.ticket.priority) {entry.ticket.priority=priority;decodes.pump();}
     } else {
         const bytes=page.cell[0]*page.cols*page.cell[1]*Math.ceil(page.frames/page.cols)*4;
         const ticket:DecodeTicket={priority};
